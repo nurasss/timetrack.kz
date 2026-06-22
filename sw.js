@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timetrack-pwa-v5';
+const CACHE_NAME = 'timetrack-pwa-v6';
 const STATIC_ASSETS = [
   './index.html',
   './admin.html',
