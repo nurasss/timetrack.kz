@@ -492,6 +492,7 @@ let liveness = {
   method: '',
 };
 
+const LIVENESS_ENABLED = false;
 const LIVENESS_CONFIRM_MS = 10000;
 const BLINK_CLOSE_RATIO = 0.82;
 const BLINK_OPEN_RATIO = 0.9;
@@ -1021,8 +1022,9 @@ function resetLiveness(empId = null) {
 }
 
 function isLivenessValid() {
+  if (!currentDetected) return false;
+  if (!LIVENESS_ENABLED) return true;
   return Boolean(
-    currentDetected &&
     liveness.empId === currentDetected.employee.id &&
     liveness.confirmed &&
     Date.now() - liveness.confirmedAt <= LIVENESS_CONFIRM_MS
