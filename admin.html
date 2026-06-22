@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f1312">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timetrack">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Timetrack — админка</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/timetrack-192.png">
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --page: #0f1312;
+    --surface: #171c1a;
+    --surface-2: #202821;
+    --ink: #ecf4ef;
+    --muted: #9dacaa;
+    --line: #303b37;
+    --brand: #27bc95;
+    --brand-2: #1d9a7b;
+    --ok: #51d99c;
+    --warn: #f2bd65;
+    --danger: #ff7b74;
+    --soft-ok: #153427;
+    --soft-warn: #332916;
+    --soft-danger: #351d20;
+    --ok-line: #25684d;
+    --warn-line: #735627;
+    --danger-line: #723335;
+    --avatar-bg: #27302c;
+    --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px;
+  }
+
+  button, input, select { font: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  .topbar {
+    min-height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    min-width: 180px;
+    text-decoration: none;
+  }
+
+  .brand img {
+    height: 26px;
+    width: auto;
+    display: block;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+  }
+
+  .tab {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .tab.active {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 4px rgba(24, 32, 40, 0.08);
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  main {
+    width: min(1240px, 100%);
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 24px;
+  }
+
+  .sub {
+    margin-top: 4px;
+    color: var(--muted);
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .panel.pad { padding: 18px; }
+  .panel.danger-zone { border-color: var(--danger-line); background: linear-gradient(180deg, rgba(255, 123, 116, 0.07), var(--surface)); }
+
+  .btn {
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.primary:hover { background: var(--brand-2); }
+  .btn.ghost { border-color: var(--line); }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.danger { background: var(--soft-danger); color: var(--danger); border-color: var(--danger-line); }
+  .btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .icon-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .badge.ok { color: var(--ok); background: var(--soft-ok); border-color: var(--ok-line); }
+  .badge.warn { color: var(--warn); background: var(--soft-warn); border-color: var(--warn-line); }
+  .badge.danger { color: var(--danger); background: var(--soft-danger); border-color: var(--danger-line); }
+
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .metric {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .metric-value {
+    font-size: 30px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-label {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .section-title {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .employee-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+  }
+
+  .employee-card {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    display: grid;
+    gap: 10px;
+  }
+
+  .employee-head {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--avatar-bg);
+    color: var(--brand);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    font-weight: 750;
+  }
+
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .input, select {
+    min-height: 38px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0 10px;
+    outline: none;
+  }
+
+  .input:focus, select:focus { border-color: var(--brand); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    text-align: left;
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    padding: 11px 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: 0; }
+  .table-wrap { overflow: auto; }
+  .td-emp { display: flex; align-items: center; gap: 9px; min-width: 220px; }
+  .td-emp .avatar { width: 34px; height: 34px; font-size: 12px; }
+
+  .list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .person-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .person-row .avatar { width: 38px; height: 38px; font-size: 12px; }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .field { display: grid; gap: 6px; }
+  .field label { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-row input { width: 100%; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 10px; }
+
+  .empty {
+    padding: 30px 16px;
+    color: var(--muted);
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(24, 32, 40, 0.56);
+    z-index: 100;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    width: min(720px, 100%);
+    max-height: calc(100vh - 40px);
+    overflow: auto;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+
+  .modal-head {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    z-index: 2;
+  }
+
+  .modal-head h2 { margin: 0; font-size: 18px; }
+  .modal-body { padding: 18px; display: grid; gap: 14px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .admin-lock {
+    z-index: 200;
+  }
+
+  .admin-lock .modal {
+    width: min(420px, 100%);
+  }
+
+  .capture {
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    background: var(--surface-2);
+  }
+
+  .capture-preview {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .capture-stage {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius);
+    background: #11181b;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    color: #d4dde1;
+  }
+
+  .capture-stage video,
+  .capture-stage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  #video-register { display: none; transform: scaleX(-1); }
+  #capture-img { display: none; }
+  #canvas-register { display: none; }
+
+  .capture-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    display: grid;
+    gap: 8px;
+    z-index: 150;
+  }
+
+  .toast {
+    min-width: min(360px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--ink);
+    color: #fff;
+    box-shadow: var(--shadow);
+  }
+
+  .toast.ok { background: var(--ok); }
+  .toast.danger { background: var(--danger); }
+
+  @media (max-width: 900px) {
+    .topbar { position: static; flex-wrap: wrap; padding: 12px 14px; gap: 10px; }
+    .tabs { order: 3; width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+    .tab { width: 100%; }
+    main { padding: 14px; }
+    .toolbar { align-items: flex-start; flex-direction: column; }
+    .grid-4, .grid-2, .settings-grid, .form-row, .capture-preview { grid-template-columns: 1fr; }
+    .top-actions { order: 2; width: 100%; flex-direction: column; align-items: stretch; margin-left: 0; }
+    .top-actions .badge { justify-content: center; flex: 1; }
+    .top-actions .btn { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="admin.html">
+    <img src="timetrack-logo.svg" alt="Timetrack">
+  </a>
+  <nav class="tabs" aria-label="Админка">
+    <button class="tab active" data-page="dashboard" onclick="switchPage('dashboard')"><i data-lucide="layout-dashboard"></i>Дашборд</button>
+    <button class="tab" data-page="employees" onclick="switchPage('employees')"><i data-lucide="users"></i>Сотрудники</button>
+    <button class="tab" data-page="reports" onclick="switchPage('reports')"><i data-lucide="table-properties"></i>Табель</button>
+    <button class="tab" data-page="settings" onclick="switchPage('settings')"><i data-lucide="settings"></i>Настройки</button>
+  </nav>
+  <div class="top-actions">
+    <span class="badge" id="sync-badge"><i data-lucide="cloud"></i><span>Проверка связи</span></span>
+    <a class="btn ghost small" id="tablet-link" href="tablet.html" target="_blank" rel="noopener"><i data-lucide="tablet"></i>Планшет</a>
+  </div>
+</header>
+
+<main>
+  <section class="page active" id="page-dashboard">
+    <div class="toolbar">
+      <div>
+        <h1>Дашборд</h1>
+        <div class="sub">Состояние смены и последние отметки</div>
+      </div>
+      <button class="btn ghost" onclick="reloadState()"><i data-lucide="refresh-cw"></i>Обновить</button>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric">
+        <div class="metric-value" id="dash-employees">0</div>
+        <div class="metric-label">Сотрудников</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dash-present">0</div>
+        <div class="metric-label">Сейчас на работе</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dash-marks">0</div>
+        <div class="metric-label">Отметок сегодня</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dash-late">0</div>
+        <div class="metric-label">Опозданий</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel pad">
+        <h2 class="section-title">На работе</h2>
+        <div class="list" id="present-list"></div>
+      </div>
+      <div class="panel pad">
+        <h2 class="section-title">Последние отметки</h2>
+        <div class="list" id="last-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-employees">
+    <div class="toolbar">
+      <div>
+        <h1>Сотрудники</h1>
+        <div class="sub" id="employee-count">0 сотрудников</div>
+      </div>
+      <button class="btn primary" onclick="openEmployeeModal()"><i data-lucide="user-plus"></i>Добавить</button>
+    </div>
+    <div class="employee-grid" id="employee-grid"></div>
+  </section>
+
+  <section class="page" id="page-reports">
+    <div class="toolbar">
+      <div>
+        <h1>Табель посещаемости</h1>
+        <div class="sub">Фильтрация, просмотр и выгрузка CSV/XLSX</div>
+      </div>
+      <div class="filters">
+        <input class="input" type="date" id="filter-from" onchange="renderReports()">
+        <input class="input" type="date" id="filter-to" onchange="renderReports()">
+        <select id="filter-employee" onchange="renderReports()"></select>
+        <select id="export-format" title="Формат выгрузки">
+          <option value="xlsx">XLSX</option>
+          <option value="csv">CSV</option>
+        </select>
+        <button class="btn primary" onclick="exportTimesheet()"><i data-lucide="download"></i>Табель</button>
+        <button class="btn ghost" onclick="exportMarks()"><i data-lucide="file-down"></i>Отметки</button>
+      </div>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric">
+        <div class="metric-value" id="report-days">0</div>
+        <div class="metric-label">Строк табеля</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="report-checkins">0</div>
+        <div class="metric-label">Приходов</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="report-checkouts">0</div>
+        <div class="metric-label">Уходов</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="report-hours">0</div>
+        <div class="metric-label">Часов</div>
+      </div>
+    </div>
+
+    <div class="panel table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Сотрудник</th>
+            <th>Приход</th>
+            <th>Уход</th>
+            <th>Часы</th>
+            <th>Статус</th>
+            <th>Проверка</th>
+          </tr>
+        </thead>
+        <tbody id="timesheet-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="page" id="page-settings">
+    <div class="toolbar">
+      <div>
+        <h1>Настройки</h1>
+        <div class="sub">Модель распознавания, порог совпадения и правила опоздания</div>
+      </div>
+      <button class="btn primary" onclick="saveSettings()"><i data-lucide="save"></i>Сохранить</button>
+    </div>
+
+    <div class="panel pad">
+      <div class="settings-grid">
+        <div class="field">
+          <label for="setting-model">Модель распознавания</label>
+          <select id="setting-model">
+            <option value="tiny">Быстрая модель Tiny Face Detector</option>
+            <option value="ssd">Точная модель SSD Mobilenet</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="setting-threshold">Порог совпадения <span id="threshold-label">0.55</span></label>
+          <div class="range-row">
+            <input type="range" min="0.35" max="0.8" step="0.01" id="setting-threshold" oninput="document.getElementById('threshold-label').textContent=this.value">
+          </div>
+        </div>
+        <div class="field">
+          <label for="setting-late">Допуск опоздания, минут</label>
+          <input class="input" type="number" min="0" max="120" id="setting-late">
+        </div>
+        <div class="field">
+          <label for="setting-pin">PIN админки</label>
+          <input class="input" type="password" id="setting-pin" inputmode="numeric" autocomplete="new-password" placeholder="Оставить текущий">
+        </div>
+      </div>
+      <div class="hint">
+        Быстрая модель лучше для планшета и слабого интернета. Точная модель загружается дольше, но устойчивее при сложном свете. Чем ниже порог совпадения, тем строже распознавание.
+      </div>
+    </div>
+
+    <div class="panel pad" style="margin-top:14px">
+      <h2 class="section-title">Обслуживание данных</h2>
+      <button class="btn danger" onclick="clearLogs()"><i data-lucide="trash-2"></i>Очистить отметки</button>
+      <div class="hint">Сотрудники и их фото останутся, удалится только журнал приходов и уходов.</div>
+    </div>
+
+    <div class="panel pad danger-zone" style="margin-top:14px">
+      <h2 class="section-title">Опасная зона</h2>
+      <button class="btn danger" onclick="openDeleteCompanyModal()"><i data-lucide="trash-2"></i>Удалить компанию</button>
+      <div class="hint">Будут удалены сотрудники, фото, настройки и все отметки этой компании. Действие нельзя отменить.</div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="employee-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="employee-modal-title">Добавить сотрудника</h2>
+      <button class="btn ghost small" onclick="closeEmployeeModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field">
+          <label for="emp-fname">Имя</label>
+          <input class="input" id="emp-fname" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label for="emp-lname">Фамилия</label>
+          <input class="input" id="emp-lname" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="emp-position">Должность</label>
+          <input class="input" id="emp-position">
+        </div>
+        <div class="field">
+          <label for="emp-dept">Отдел</label>
+          <input class="input" id="emp-dept">
+        </div>
+      </div>
+      <div class="field">
+        <label for="emp-start">Начало рабочего дня</label>
+        <input class="input" type="time" id="emp-start" value="09:00">
+      </div>
+
+      <div class="capture">
+        <h3 class="section-title">Фото для распознавания</h3>
+        <div class="capture-preview">
+          <div class="capture-stage">
+            <video id="video-register" autoplay muted playsinline></video>
+            <img id="capture-img" src="" alt="">
+            <span id="capture-placeholder">Фото не выбрано</span>
+          </div>
+          <div>
+            <div id="capture-status" class="sub">Можно сделать снимок с камеры или загрузить готовое фото.</div>
+            <div class="capture-actions">
+              <button class="btn ghost small" id="btn-start-camera" onclick="startRegisterCamera()"><i data-lucide="camera"></i>Включить камеру</button>
+              <button class="btn primary small" id="btn-snap" onclick="snapFace()" disabled><i data-lucide="scan-face"></i>Сделать снимок</button>
+              <label class="btn ghost small">
+                <i data-lucide="camera"></i>С камеры
+                <input type="file" accept="image/*" capture="user" style="display:none" onchange="loadPhotoFromFile(event)">
+              </label>
+              <label class="btn ghost small">
+                <i data-lucide="upload"></i>Из файла
+                <input type="file" accept="image/*" style="display:none" onchange="loadPhotoFromFile(event)">
+              </label>
+            </div>
+          </div>
+        </div>
+        <canvas id="canvas-register" width="640" height="480"></canvas>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn ghost" onclick="closeEmployeeModal()">Отмена</button>
+        <button class="btn primary" id="employee-save-btn" onclick="saveEmployee()"><i data-lucide="save"></i>Сохранить сотрудника</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop admin-lock open" id="admin-lock">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Вход в админку</h2>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label for="admin-pin">PIN</label>
+        <input class="input" type="password" id="admin-pin" inputmode="numeric" autocomplete="current-password" onkeydown="if(event.key==='Enter') unlockAdmin()">
+      </div>
+      <button class="btn primary" onclick="unlockAdmin()"><i data-lucide="lock-keyhole"></i>Войти</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="delete-company-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Удалить компанию</h2>
+      <button class="btn ghost small" onclick="closeDeleteCompanyModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="badge danger"><i data-lucide="triangle-alert"></i>Данные будут удалены без восстановления</div>
+      <div class="hint">Для подтверждения введите PIN админки и идентификатор компании.</div>
+      <div class="field">
+        <label for="delete-company-pin">PIN админки</label>
+        <input class="input" type="password" id="delete-company-pin" inputmode="numeric" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="delete-company-slug">Идентификатор компании: <strong id="delete-company-slug-label"></strong></label>
+        <input class="input" id="delete-company-slug" autocomplete="off" spellcheck="false" oninput="updateDeleteCompanyButton()">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn ghost" onclick="closeDeleteCompanyModal()">Отмена</button>
+        <button class="btn danger" id="delete-company-confirm" onclick="deleteCompany()" disabled><i data-lucide="trash-2"></i>Удалить навсегда</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+const SLUG = new URLSearchParams(location.search).get('c') || '';
+if (!SLUG) {
+  location.replace('index.html');
+}
+const API = `api.php?c=${encodeURIComponent(SLUG)}&action=`;
+const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
+const STORE_KEY = `timetrack_state_${SLUG}`;
+const ADMIN_PIN_KEY = `timetrack_admin_pin_${SLUG}`;
+const ADMIN_ACTIONS = new Set(['checkAdminPin', 'saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs', 'deleteCompany']);
+const DEFAULT_STATE = {
+  employees: [],
+  logs: [],
+  settings: { recognitionModel: 'tiny', matchThreshold: 0.55, lateMinutes: 15 },
+};
+
+installCompanyManifest('admin');
+
+let state = clone(DEFAULT_STATE);
+let syncMode = 'local';
+let activePage = 'dashboard';
+let registerStream = null;
+let modelsLoadedFor = '';
+let capturedDescriptor = null;
+let capturedPhoto = null;
+let editingEmployeeId = null;
+let adminPin = sessionStorage.getItem(ADMIN_PIN_KEY) || '';
+
+const Store = {
+  async load() {
+    try {
+      if (location.protocol === 'file:') throw new Error('local file');
+      const res = await fetch(API + 'state', { cache: 'no-store' });
+      if (!res.ok) throw new Error('api unavailable');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'api error');
+      applyState(data.state);
+      syncMode = 'server';
+      saveLocal();
+    } catch (error) {
+      const cached = localStorage.getItem(STORE_KEY);
+      applyState(cached ? JSON.parse(cached) : DEFAULT_STATE);
+      syncMode = 'local';
+    }
+    renderAll();
+  },
+
+  async post(action, body) {
+    let result = null;
+    try {
+      if (location.protocol === 'file:') throw new Error('local file');
+      const payload = { action, ...body };
+      if (ADMIN_ACTIONS.has(action)) payload.adminPin = adminPin;
+      const res = await fetch(API + encodeURIComponent(action), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        const error = new Error(data?.error || 'api unavailable');
+        error.appError = true;
+        error.status = res.status;
+        throw error;
+      }
+      if (data.state) applyState(data.state);
+      syncMode = 'server';
+      saveLocal();
+      result = data;
+    } catch (error) {
+      if (error.appError) {
+        if (error.status === 401 || error.status === 403) lockAdmin();
+        throw error;
+      }
+      if (action === 'deleteCompany') {
+        throw new Error('Удаление компании доступно только при подключении к серверу');
+      }
+      syncMode = 'local';
+      mutateLocal(action, body);
+      saveLocal();
+    }
+    renderAll();
+    return result;
+  },
+};
+
+function mutateLocal(action, body) {
+  if (action === 'saveEmployee') {
+    const employee = body.employee;
+    const index = state.employees.findIndex((item) => item.id === employee.id);
+    if (index >= 0) state.employees[index] = employee;
+    else state.employees.push(employee);
+  }
+  if (action === 'deleteEmployee') {
+    state.employees = state.employees.filter((employee) => employee.id !== body.id);
+  }
+  if (action === 'updateSettings') {
+    state.settings = { ...DEFAULT_STATE.settings, ...body.settings };
+  }
+  if (action === 'clearLogs') {
+    state.logs = [];
+  }
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function applyState(next) {
+  state = {
+    employees: Array.isArray(next?.employees) ? next.employees : [],
+    logs: Array.isArray(next?.logs) ? next.logs : [],
+    settings: { ...DEFAULT_STATE.settings, ...(next?.settings || {}) },
+  };
+}
+
+function saveLocal() {
+  const pruned = {
+    employees: state.employees.map(({ photo, ...rest }) => rest),
+    logs: state.logs.slice(0, 200).map(({ empPhoto, ...rest }) => rest),
+    settings: state.settings,
+  };
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(pruned));
+  } catch (error) {
+    try { localStorage.removeItem(STORE_KEY); } catch {}
+  }
+}
+
+function installCompanyManifest(page) {
+  if (!SLUG || location.protocol === 'file:') return;
+  const pageFile = page === 'admin' ? 'admin.html' : 'tablet.html';
+  const startUrl = new URL(`${pageFile}?c=${encodeURIComponent(SLUG)}`, location.href);
+  const manifest = {
+    name: `Timetrack ${SLUG}`,
+    short_name: 'Timetrack',
+    description: 'Админка учёта рабочего времени Timetrack',
+    lang: 'ru',
+    id: startUrl.pathname + startUrl.search,
+    start_url: startUrl.href,
+    scope: new URL('./', location.href).href,
+    display: page === 'admin' ? 'standalone' : 'fullscreen',
+    display_override: page === 'admin' ? ['standalone'] : ['fullscreen', 'standalone'],
+    orientation: page === 'admin' ? 'any' : 'landscape',
+    background_color: '#0f1312',
+    theme_color: '#0f1312',
+    categories: ['business', 'productivity'],
+    icons: [
+      {
+        src: new URL('icons/timetrack-192.png', location.href).href,
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: new URL('icons/timetrack-512.png', location.href).href,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const href = URL.createObjectURL(blob);
+  const link = document.querySelector('link[rel="manifest"]') || document.createElement('link');
+  link.rel = 'manifest';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function lockAdmin() {
+  adminPin = '';
+  sessionStorage.removeItem(ADMIN_PIN_KEY);
+  document.getElementById('admin-lock').classList.add('open');
+  setTimeout(() => document.getElementById('admin-pin')?.focus(), 0);
+}
+
+function unlockAdmin() {
+  const pin = document.getElementById('admin-pin').value.trim();
+  if (!pin) {
+    toast('Введите PIN админки', 'danger');
+    return;
+  }
+  adminPin = pin;
+  Store.post('checkAdminPin', {})
+    .then(() => {
+      sessionStorage.setItem(ADMIN_PIN_KEY, adminPin);
+      document.getElementById('admin-lock').classList.remove('open');
+      document.getElementById('admin-pin').value = '';
+      toast('Админка открыта', 'ok');
+    })
+    .catch((error) => {
+      lockAdmin();
+      toast(error.message || 'Неверный PIN админки', 'danger');
+    });
+}
+
+async function verifyAdminAccess() {
+  if (!adminPin) {
+    lockAdmin();
+    return;
+  }
+  try {
+    await Store.post('checkAdminPin', {});
+    document.getElementById('admin-lock').classList.remove('open');
+  } catch {
+    lockAdmin();
+  }
+}
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+  }[char]));
+}
+
+function safePhoto(photo) {
+  return typeof photo === 'string' && photo.startsWith('data:image/') ? photo : '';
+}
+
+function initials(emp) {
+  return `${emp.fname?.[0] || ''}${emp.lname?.[0] || ''}`.toUpperCase() || '?';
+}
+
+function employeeById(id) {
+  return state.employees.find((employee) => employee.id === id);
+}
+
+function switchPage(page) {
+  activePage = page;
+  document.querySelectorAll('.page').forEach((node) => node.classList.toggle('active', node.id === 'page-' + page));
+  document.querySelectorAll('.tab').forEach((node) => node.classList.toggle('active', node.dataset.page === page));
+  renderAll();
+}
+
+async function reloadState() {
+  await Store.load();
+  toast('Данные обновлены', 'ok');
+}
+
+function renderAll() {
+  renderSyncBadge();
+  renderDashboard();
+  renderEmployees();
+  renderReportFilters();
+  renderReports();
+  renderSettings();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function renderSyncBadge() {
+  const badge = document.getElementById('sync-badge');
+  badge.className = 'badge ' + (syncMode === 'server' ? 'ok' : 'warn');
+  badge.querySelector('span').textContent = syncMode === 'server' ? 'Сервер' : 'Локально';
+}
+
+function todayLogs() {
+  const today = new Date().toLocaleDateString('ru-RU');
+  return state.logs.filter((log) => log.date === today);
+}
+
+function currentStatusMap(logs = todayLogs()) {
+  const status = {};
+  logs.slice().reverse().forEach((log) => { status[log.empId] = log.type; });
+  return status;
+}
+
+function renderDashboard() {
+  const logs = todayLogs();
+  const status = currentStatusMap(logs);
+  const presentIds = Object.entries(status).filter(([, type]) => type === 'checkin').map(([id]) => id);
+  document.getElementById('dash-employees').textContent = state.employees.length;
+  document.getElementById('dash-present').textContent = presentIds.length;
+  document.getElementById('dash-marks').textContent = logs.length;
+  document.getElementById('dash-late').textContent = logs.filter((log) => log.isLate).length;
+
+  const presentList = document.getElementById('present-list');
+  if (!presentIds.length) {
+    presentList.innerHTML = '<div class="empty">Никого нет на работе</div>';
+  } else {
+    presentList.innerHTML = presentIds.map((id) => {
+      const emp = employeeById(id);
+      if (!emp) return '';
+      const last = logs.find((log) => log.empId === id && log.type === 'checkin');
+      return personRow(emp, last?.time || '', 'ok');
+    }).join('');
+  }
+
+  const lastList = document.getElementById('last-list');
+  const recent = state.logs.slice(0, 8);
+  if (!recent.length) {
+    lastList.innerHTML = '<div class="empty">Отметок пока нет</div>';
+  } else {
+    lastList.innerHTML = recent.map((log) => {
+      const emp = employeeById(log.empId) || { fname: log.empName, lname: '', photo: log.empPhoto };
+      return personRow(emp, `${log.date} · ${log.time}`, log.type === 'checkin' ? 'ok' : '');
+    }).join('');
+  }
+}
+
+function personRow(emp, detail, badgeClass = '') {
+  const photo = safePhoto(emp.photo);
+  return `
+    <div class="person-row">
+      <div class="avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+      <div>
+        <div class="name">${escapeHTML(`${emp.fname || ''} ${emp.lname || ''}`.trim())}</div>
+        <div class="meta">${escapeHTML(detail)}</div>
+      </div>
+      <span class="badge ${badgeClass}">${badgeClass === 'ok' ? 'Активен' : 'Запись'}</span>
+    </div>
+  `;
+}
+
+function renderEmployees() {
+  const label = `${state.employees.length} сотрудник${declension(state.employees.length)}`;
+  document.getElementById('employee-count').textContent = label;
+  const grid = document.getElementById('employee-grid');
+  if (!state.employees.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Добавьте первого сотрудника и зарегистрируйте фото лица</div>';
+    return;
+  }
+
+  grid.innerHTML = state.employees.map((emp) => {
+    const photo = safePhoto(emp.photo);
+    return `
+      <article class="employee-card">
+        <div class="employee-head">
+          <div class="avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+          <div>
+            <div class="name">${escapeHTML(emp.fname)} ${escapeHTML(emp.lname)}</div>
+            <div class="meta">${escapeHTML(emp.position || 'Сотрудник')} · ${escapeHTML(emp.dept || 'Общий')}</div>
+          </div>
+          <div class="icon-actions">
+            <button class="btn ghost small" onclick="editEmployee('${escapeHTML(emp.id)}')" title="Редактировать"><i data-lucide="pencil"></i></button>
+            <button class="btn danger small" onclick="deleteEmployee('${escapeHTML(emp.id)}')" title="Удалить"><i data-lucide="trash-2"></i></button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:8px; align-items:center">
+          <span class="badge ${Array.isArray(emp.descriptor) ? 'ok' : 'warn'}">
+            <i data-lucide="scan-face"></i>${Array.isArray(emp.descriptor) ? 'Лицо есть' : 'Без фото'}
+          </span>
+          <span class="meta">${escapeHTML(emp.workStart || '09:00')}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function declension(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return '';
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'а';
+  return 'ов';
+}
+
+function renderReportFilters() {
+  const select = document.getElementById('filter-employee');
+  const current = select.value;
+  select.innerHTML = '<option value="">Все сотрудники</option>' + state.employees
+    .map((emp) => `<option value="${escapeHTML(emp.id)}">${escapeHTML(emp.fname)} ${escapeHTML(emp.lname)}</option>`)
+    .join('');
+  select.value = current;
+}
+
+function filteredLogs() {
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  const employee = document.getElementById('filter-employee').value;
+  return state.logs.filter((log) => {
+    const day = localDateKey(log);
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    if (employee && log.empId !== employee) return false;
+    return true;
+  });
+}
+
+function renderReports() {
+  const rows = aggregateTimesheet(filteredLogs());
+  document.getElementById('report-days').textContent = rows.length;
+  document.getElementById('report-checkins').textContent = filteredLogs().filter((log) => log.type === 'checkin').length;
+  document.getElementById('report-checkouts').textContent = filteredLogs().filter((log) => log.type === 'checkout').length;
+  document.getElementById('report-hours').textContent = rows.reduce((sum, row) => sum + (row.hours || 0), 0).toFixed(1);
+
+  const tbody = document.getElementById('timesheet-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty">Нет данных за выбранный период</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const emp = row.employee;
+    const photo = safePhoto(emp.photo);
+    return `
+      <tr>
+        <td>${formatDate(row.date)}</td>
+        <td>
+          <div class="td-emp">
+            <div class="avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+            <div>
+              <div class="name">${escapeHTML(row.name)}</div>
+              <div class="meta">${escapeHTML(emp.position || '')} ${emp.dept ? '· ' + escapeHTML(emp.dept) : ''}</div>
+            </div>
+          </div>
+        </td>
+        <td>${escapeHTML(row.firstIn || '-')}</td>
+        <td>${escapeHTML(row.lastOut || '-')}</td>
+        <td>${row.hours ? row.hours.toFixed(2) : '-'}</td>
+        <td><span class="badge ${row.late ? 'warn' : 'ok'}">${row.late ? 'Опоздание' : 'Вовремя'}</span></td>
+        <td><span class="badge ${row.verified ? 'ok' : 'warn'}">${escapeHTML(verificationLabel(row.verification))}</span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function aggregateTimesheet(logs) {
+  const sorted = logs.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const map = new Map();
+  sorted.forEach((log) => {
+    const date = localDateKey(log);
+    const key = `${log.empId}|${date}`;
+    const emp = employeeById(log.empId) || {
+      id: log.empId, fname: log.empName, lname: '', position: '', dept: '', photo: log.empPhoto,
+    };
+    if (!map.has(key)) {
+      map.set(key, {
+        date,
+        empId: log.empId,
+        employee: emp,
+        name: log.empName || `${emp.fname || ''} ${emp.lname || ''}`.trim(),
+        firstIn: '',
+        firstInTs: null,
+        lastOut: '',
+        lastOutTs: null,
+        late: false,
+        verified: false,
+        verification: '',
+        hours: 0,
+      });
+    }
+    const row = map.get(key);
+    const ts = new Date(log.ts);
+    if (log.type === 'checkin' && (!row.firstInTs || ts < row.firstInTs)) {
+      row.firstIn = log.time;
+      row.firstInTs = ts;
+    }
+    if (log.type === 'checkout' && (!row.lastOutTs || ts > row.lastOutTs)) {
+      row.lastOut = log.time;
+      row.lastOutTs = ts;
+    }
+    if (log.isLate) row.late = true;
+    if (log.verification === 'blink' || log.verification === 'head') {
+      row.verified = true;
+      if (!row.verification) row.verification = log.verification;
+    }
+  });
+
+  return Array.from(map.values()).map((row) => {
+    if (row.firstInTs && row.lastOutTs && row.lastOutTs > row.firstInTs) {
+      row.hours = (row.lastOutTs - row.firstInTs) / 36e5;
+    }
+    return row;
+  }).sort((a, b) => b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+}
+
+function localDateKey(log) {
+  const date = new Date(log.ts);
+  if (!Number.isNaN(date.getTime())) {
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  }
+  const match = String(log.date || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : '';
+}
+
+function formatDate(iso) {
+  const [year, month, day] = iso.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+function verificationLabel(value) {
+  if (value === 'blink') return 'Моргание';
+  if (value === 'head') return 'Поворот головы';
+  return 'Нет';
+}
+
+function renderSettings() {
+  document.getElementById('setting-model').value = state.settings.recognitionModel || 'tiny';
+  document.getElementById('setting-threshold').value = state.settings.matchThreshold || 0.55;
+  document.getElementById('threshold-label').textContent = document.getElementById('setting-threshold').value;
+  document.getElementById('setting-late').value = state.settings.lateMinutes ?? 15;
+  const pinInput = document.getElementById('setting-pin');
+  if (document.activeElement !== pinInput) pinInput.value = '';
+}
+
+async function saveSettings() {
+  const nextPin = document.getElementById('setting-pin').value.trim();
+  const settings = {
+    recognitionModel: document.getElementById('setting-model').value,
+    matchThreshold: Number(document.getElementById('setting-threshold').value),
+    lateMinutes: Number(document.getElementById('setting-late').value || 15),
+  };
+  if (nextPin) settings.adminPin = nextPin;
+  try {
+    await Store.post('updateSettings', { settings });
+  } catch (error) {
+    toast(error.message || 'Не удалось сохранить настройки', 'danger');
+    return;
+  }
+  if (nextPin) {
+    adminPin = nextPin;
+    sessionStorage.setItem(ADMIN_PIN_KEY, adminPin);
+    document.getElementById('setting-pin').value = '';
+  }
+  modelsLoadedFor = '';
+  toast('Настройки сохранены', 'ok');
+}
+
+function openEmployeeModal(emp = null) {
+  editingEmployeeId = emp?.id || null;
+  document.getElementById('employee-modal').classList.add('open');
+  document.getElementById('employee-modal-title').textContent = emp ? 'Редактировать сотрудника' : 'Добавить сотрудника';
+  document.getElementById('employee-save-btn').innerHTML = `<i data-lucide="save"></i>${emp ? 'Сохранить изменения' : 'Сохранить сотрудника'}`;
+  document.getElementById('emp-fname').value = emp?.fname || '';
+  document.getElementById('emp-lname').value = emp?.lname || '';
+  document.getElementById('emp-position').value = emp?.position || '';
+  document.getElementById('emp-dept').value = emp?.dept || '';
+  document.getElementById('emp-start').value = emp?.workStart || '09:00';
+  capturedDescriptor = Array.isArray(emp?.descriptor) ? emp.descriptor : null;
+  capturedPhoto = safePhoto(emp?.photo);
+  resetCapture(emp);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function editEmployee(id) {
+  const emp = employeeById(id);
+  if (!emp) {
+    toast('Сотрудник не найден', 'danger');
+    return;
+  }
+  openEmployeeModal(emp);
+}
+
+function closeEmployeeModal() {
+  document.getElementById('employee-modal').classList.remove('open');
+  stopRegisterCamera();
+  editingEmployeeId = null;
+}
+
+function resetCapture(emp = null) {
+  document.getElementById('video-register').style.display = 'none';
+  const img = document.getElementById('capture-img');
+  const photo = safePhoto(emp?.photo) || capturedPhoto;
+  img.style.display = photo ? 'block' : 'none';
+  img.src = photo || '';
+  document.getElementById('capture-placeholder').style.display = photo ? 'none' : 'block';
+  document.getElementById('btn-snap').disabled = true;
+  document.getElementById('capture-status').textContent = photo
+    ? 'Текущее фото сохранено. Можно оставить его или загрузить новое.'
+    : 'Можно сделать снимок с камеры или загрузить готовое фото.';
+}
+
+async function startRegisterCamera() {
+  try {
+    stopRegisterCamera();
+    registerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    const video = document.getElementById('video-register');
+    video.srcObject = registerStream;
+    video.style.display = 'block';
+    document.getElementById('capture-img').style.display = 'none';
+    document.getElementById('capture-placeholder').style.display = 'none';
+    document.getElementById('btn-snap').disabled = false;
+    document.getElementById('capture-status').textContent = 'Камера включена. Сделайте снимок лица.';
+    await loadModels();
+  } catch (error) {
+    toast('Не удалось открыть камеру', 'danger');
+  }
+}
+
+function stopRegisterCamera() {
+  if (registerStream) {
+    registerStream.getTracks().forEach((track) => track.stop());
+    registerStream = null;
+  }
+}
+
+async function loadModels() {
+  const model = state.settings.recognitionModel === 'ssd' ? 'ssd' : 'tiny';
+  if (modelsLoadedFor === model) return true;
+  if (!window.faceapi) {
+    toast('Модуль распознавания ещё загружается', 'danger');
+    return false;
+  }
+  document.getElementById('capture-status').textContent = model === 'ssd'
+    ? 'Загрузка точной модели...'
+    : 'Загрузка быстрой модели...';
+  const tasks = [
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  ];
+  if (model === 'ssd') tasks.push(faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL));
+  else tasks.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL));
+  await Promise.all(tasks);
+  modelsLoadedFor = model;
+  return true;
+}
+
+function detectorOptions() {
+  return state.settings.recognitionModel === 'ssd'
+    ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+    : new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 });
+}
+
+async function snapFace() {
+  const video = document.getElementById('video-register');
+  if (video.readyState < 2) {
+    toast('Камера ещё не готова', 'danger');
+    return;
+  }
+  const canvas = document.getElementById('canvas-register');
+  const maxWidth = 480;
+  const ratio = video.videoWidth ? Math.min(1, maxWidth / video.videoWidth) : 1;
+  canvas.width = Math.round((video.videoWidth || 640) * ratio);
+  canvas.height = Math.round((video.videoHeight || 480) * ratio);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  const photo = canvas.toDataURL('image/jpeg', 0.78);
+  await analyzeCanvas(canvas, photo);
+}
+
+async function loadPhotoFromFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const { canvas, photo } = await imageFileToCanvas(file);
+    await analyzeCanvas(canvas, photo);
+  } catch (error) {
+    toast('Не удалось прочитать фото', 'danger');
+  }
+}
+
+function imageFileToCanvas(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = reject;
+      image.onload = () => {
+        const canvas = document.getElementById('canvas-register');
+        const maxSize = 480;
+        const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve({ canvas, photo: canvas.toDataURL('image/jpeg', 0.78) });
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function analyzeCanvas(canvas, photo) {
+  if (!(await loadModels())) return;
+  document.getElementById('capture-status').textContent = 'Анализ лица...';
+  const detection = await faceapi
+    .detectSingleFace(canvas, detectorOptions())
+    .withFaceLandmarks(true)
+    .withFaceDescriptor();
+  if (!detection) {
+    capturedDescriptor = null;
+    capturedPhoto = null;
+    document.getElementById('capture-status').textContent = 'Лицо не найдено. Попробуйте другое фото.';
+    toast('Лицо не найдено', 'danger');
+    return;
+  }
+  capturedDescriptor = Array.from(detection.descriptor);
+  capturedPhoto = photo;
+  stopRegisterCamera();
+  const img = document.getElementById('capture-img');
+  img.src = capturedPhoto;
+  img.style.display = 'block';
+  document.getElementById('video-register').style.display = 'none';
+  document.getElementById('capture-placeholder').style.display = 'none';
+  document.getElementById('btn-snap').disabled = true;
+  document.getElementById('capture-status').textContent = 'Лицо зарегистрировано. Можно сохранять сотрудника.';
+  toast('Фото распознано', 'ok');
+}
+
+async function saveEmployee() {
+  const fname = document.getElementById('emp-fname').value.trim();
+  const lname = document.getElementById('emp-lname').value.trim();
+  if (!fname || !lname) {
+    toast('Введите имя и фамилию', 'danger');
+    return;
+  }
+  const employee = {
+    id: editingEmployeeId || 'e' + Date.now(),
+    fname,
+    lname,
+    position: document.getElementById('emp-position').value.trim() || 'Сотрудник',
+    dept: document.getElementById('emp-dept').value.trim() || 'Общий',
+    workStart: document.getElementById('emp-start').value || '09:00',
+    photo: capturedPhoto,
+    descriptor: capturedDescriptor,
+  };
+  const wasEditing = Boolean(editingEmployeeId);
+  try {
+    await Store.post('saveEmployee', { employee });
+  } catch (error) {
+    toast(error.message || 'Не удалось сохранить сотрудника', 'danger');
+    return;
+  }
+  closeEmployeeModal();
+  toast(wasEditing ? 'Сотрудник обновлён' : 'Сотрудник добавлен', 'ok');
+  switchPage('employees');
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Удалить сотрудника? Отметки в табеле останутся.')) return;
+  try {
+    await Store.post('deleteEmployee', { id });
+  } catch (error) {
+    toast(error.message || 'Не удалось удалить сотрудника', 'danger');
+    return;
+  }
+  toast('Сотрудник удалён', 'ok');
+}
+
+async function clearLogs() {
+  if (!confirm('Удалить все отметки прихода и ухода?')) return;
+  try {
+    await Store.post('clearLogs', {});
+  } catch (error) {
+    toast(error.message || 'Не удалось очистить отметки', 'danger');
+    return;
+  }
+  toast('Отметки очищены', 'ok');
+}
+
+function openDeleteCompanyModal() {
+  document.getElementById('delete-company-modal').classList.add('open');
+  document.getElementById('delete-company-slug-label').textContent = SLUG;
+  document.getElementById('delete-company-pin').value = '';
+  document.getElementById('delete-company-slug').value = '';
+  updateDeleteCompanyButton();
+  setTimeout(() => document.getElementById('delete-company-pin')?.focus(), 0);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeDeleteCompanyModal() {
+  document.getElementById('delete-company-modal').classList.remove('open');
+}
+
+function updateDeleteCompanyButton() {
+  const typedSlug = document.getElementById('delete-company-slug').value.trim();
+  document.getElementById('delete-company-confirm').disabled = typedSlug !== SLUG;
+}
+
+async function deleteCompany() {
+  const pin = document.getElementById('delete-company-pin').value.trim();
+  const confirmSlug = document.getElementById('delete-company-slug').value.trim();
+  if (!pin) {
+    toast('Введите PIN админки', 'danger');
+    return;
+  }
+  if (confirmSlug !== SLUG) {
+    toast('Введите идентификатор компании точно как показано', 'danger');
+    return;
+  }
+
+  const previousPin = adminPin;
+  adminPin = pin;
+  try {
+    await Store.post('deleteCompany', { confirmSlug });
+  } catch (error) {
+    adminPin = previousPin;
+    toast(error.message || 'Не удалось удалить компанию', 'danger');
+    return;
+  }
+
+  sessionStorage.removeItem(ADMIN_PIN_KEY);
+  localStorage.removeItem(STORE_KEY);
+  toast('Компания удалена', 'ok');
+  setTimeout(() => location.replace('index.html'), 700);
+}
+
+function exportTimesheet() {
+  const rows = timesheetRowsForExport();
+  if (!rows) return;
+  downloadExport(`timetrack_tabel_${stamp()}`, rows, 'Табель');
+  toast('Табель выгружен', 'ok');
+}
+
+function exportTimesheetCSV() {
+  const rows = timesheetRowsForExport();
+  if (!rows) return;
+  downloadCSV(`timetrack_tabel_${stamp()}.csv`, rows);
+  toast('Табель выгружен', 'ok');
+}
+
+function timesheetRowsForExport() {
+  const rows = aggregateTimesheet(filteredLogs());
+  if (!rows.length) {
+    toast('Нет данных для выгрузки', 'danger');
+    return null;
+  }
+  const exportRows = [['Дата', 'Сотрудник', 'Отдел', 'Должность', 'Приход', 'Уход', 'Часы', 'Опоздание', 'Проверка']];
+  rows.forEach((row) => {
+    exportRows.push([
+      formatDate(row.date),
+      row.name,
+      row.employee.dept || '',
+      row.employee.position || '',
+      row.firstIn || '',
+      row.lastOut || '',
+      row.hours ? row.hours.toFixed(2).replace('.', ',') : '',
+      row.late ? 'Да' : 'Нет',
+      row.verified ? verificationLabel(row.verification) : '',
+    ]);
+  });
+  return exportRows;
+}
+
+function exportMarks() {
+  const rows = marksRowsForExport();
+  if (!rows) return;
+  downloadExport(`timetrack_marks_${stamp()}`, rows, 'Отметки');
+  toast('Отметки выгружены', 'ok');
+}
+
+function exportMarksCSV() {
+  const rows = marksRowsForExport();
+  if (!rows) return;
+  downloadCSV(`timetrack_marks_${stamp()}.csv`, rows);
+  toast('Отметки выгружены', 'ok');
+}
+
+function marksRowsForExport() {
+  const logs = filteredLogs().slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  if (!logs.length) {
+    toast('Нет отметок для выгрузки', 'danger');
+    return null;
+  }
+  const rows = [['Дата', 'Время', 'Сотрудник', 'Тип', 'Опоздание', 'Проверка']];
+  logs.forEach((log) => {
+    rows.push([
+      log.date,
+      log.time,
+      log.empName,
+      log.type === 'checkin' ? 'Приход' : 'Уход',
+      log.isLate ? 'Да' : 'Нет',
+      log.verification ? verificationLabel(log.verification) : '',
+    ]);
+  });
+  return rows;
+}
+
+function downloadExport(filenameBase, rows, sheetName) {
+  const format = document.getElementById('export-format').value;
+  if (format === 'xlsx') {
+    downloadXLSX(`${filenameBase}.xlsx`, rows, sheetName);
+    return;
+  }
+  downloadCSV(`${filenameBase}.csv`, rows);
+}
+
+function downloadXLSX(filename, rows, sheetName) {
+  if (!window.XLSX) {
+    toast('XLSX ещё загружается, выгружаю CSV', 'danger');
+    downloadCSV(filename.replace(/\.xlsx$/i, '.csv'), rows);
+    return;
+  }
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+  worksheet['!cols'] = rows[0].map((_, index) => ({
+    wch: Math.max(12, ...rows.map((row) => String(row[index] ?? '').length).slice(0, 200)) + 2,
+  }));
+  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  XLSX.writeFile(workbook, filename);
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map((row) => row.map(csvCell).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return /[;"\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+}
+
+function stamp() {
+  return new Date().toLocaleDateString('ru-RU').replace(/\./g, '_');
+}
+
+function toast(message, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const node = document.createElement('div');
+  node.className = 'toast ' + type;
+  node.textContent = message;
+  wrap.appendChild(node);
+  setTimeout(() => node.remove(), 3600);
+}
+
+function initFilters() {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById('filter-from').value = [
+    firstDay.getFullYear(),
+    String(firstDay.getMonth() + 1).padStart(2, '0'),
+    '01',
+  ].join('-');
+  document.getElementById('filter-to').value = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+async function loadCompanyInfo() {
+  try {
+    const res = await fetch(API + 'companyInfo', { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok && data.company?.name) {
+      document.title = `${data.company.name} — админка`;
+    }
+  } catch {}
+}
+
+window.addEventListener('load', async () => {
+  document.getElementById('tablet-link').href = `tablet.html?c=${encodeURIComponent(SLUG)}`;
+  initFilters();
+  await Store.load();
+  await loadCompanyInfo();
+  await verifyAdminAccess();
+  setInterval(() => Store.load(), 30000);
+  if (window.lucide) window.lucide.createIcons();
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+  }
+});
+</script>
+</body>
+</html>

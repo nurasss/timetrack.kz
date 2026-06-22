@@ -1,0 +1,20 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+
+# Per-tenant data (PII: employee photos, attendance logs)
+data/
+
+# Dev screenshots
+screenshots/
+
+# Original logo source (use timetrack-logo.svg)
+timetrack logo copy.svg
