@@ -885,10 +885,14 @@ async function loadModels() {
   } else {
     tasks.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL));
   }
-  tasks.push(loadAntiSpoofModel());
   await Promise.all(tasks);
   modelsLoadedFor = model;
   setVideoStatus('Модель готова');
+  // Anti-spoof model loads independently — it must never block face
+  // recognition from becoming available (it's a separate ~13MB asset
+  // that can be slow on weak wifi; recognize() already fails open via
+  // runAntiSpoof() returning null while it's still loading).
+  loadAntiSpoofModel();
   return true;
 }
 
