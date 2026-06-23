@@ -28,9 +28,6 @@ const MIME = {
   '.jpg': 'image/jpeg',
   '.svg': 'image/svg+xml',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
-  '.wasm': 'application/wasm',
-  '.onnx': 'application/octet-stream',
-  '.mjs': 'application/javascript; charset=utf-8',
 };
 
 function clone(v) { return JSON.parse(JSON.stringify(v)); }
