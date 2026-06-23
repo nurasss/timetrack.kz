@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script defer src="vendor/ort/ort.min.js"></script>
 <style>
   :root {
     color-scheme: dark;
@@ -483,16 +484,17 @@ let lastFullMatchAt = 0;
 let lastVisualActivityAt = Date.now();
 const PHOTO_GUARD_ENABLED = true;
 const PHOTO_GUARD_VALID_MS = 10000;
-const PHOTO_GUARD_WINDOW_MS = 2500;
-const PHOTO_GUARD_MIN_FRAMES = 9;
-const PHOTO_GUARD_NOSE_DRIFT = 0.008;
-const PHOTO_GUARD_BLINK_DROP = 0.2;
-const PHOTO_GUARD_TEXTURE_MIN = 6;
+const PHOTO_GUARD_WINDOW_MS = 1500;
+const PHOTO_GUARD_MIN_FRAMES = 3;
+const PHOTO_GUARD_LIVE_THRESHOLD = 0.75;
+const PHOTO_GUARD_MODEL_URL = 'models/minifasnet_v2.onnx';
 const PHOTO_GUARD_DEBUG = new URLSearchParams(location.search).get('debug') === '1';
 let photoGuard = { empId: null, samples: [], confirmed: false, confirmedAt: 0 };
 let photoGuardDebugEl = null;
-let textureSampleCanvas = null;
-let textureSampleCtx = null;
+let spoofSampleCanvas = null;
+let spoofSampleCtx = null;
+let spoofSession = null;
+let spoofSessionLoading = null;
 const FULL_MATCH_INTERVAL_MS = 2200;
 const DUPLICATE_WINDOW_MS = 120000;
 const SLEEP_AFTER_MS = 45000;
@@ -883,6 +885,7 @@ async function loadModels() {
   } else {
     tasks.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL));
   }
+  tasks.push(loadAntiSpoofModel());
   await Promise.all(tasks);
   modelsLoadedFor = model;
   setVideoStatus('Модель готова');
@@ -926,7 +929,7 @@ async function detectFace() {
         setRecognitionIdle('Лицо не найдено');
       } else {
         noteVisualActivity();
-        updateLiveness(detection, currentDetected.employee);
+        await updateLiveness(detection, currentDetected.employee);
         showRecognized(currentDetected.employee, currentDetected.confidence);
       }
     } else {
@@ -936,7 +939,7 @@ async function detectFace() {
         .withFaceDescriptor();
       lastFullMatchAt = Date.now();
       drawDetection(detection, video);
-      recognize(detection);
+      await recognize(detection);
     }
   } catch (error) {
     setVideoStatus('Ошибка распознавания');
@@ -958,7 +961,7 @@ function drawDetection(detection, video) {
   ctx.strokeRect(box.x, box.y, box.width, box.height);
 }
 
-function recognize(detection) {
+async function recognize(detection) {
   if (!detection) {
     currentDetected = null;
     resetLiveness();
@@ -991,7 +994,7 @@ function recognize(detection) {
   if (best && bestDistance <= threshold) {
     const confidence = Math.max(1, Math.round((1 - bestDistance) * 100));
     currentDetected = { employee: best, distance: bestDistance, confidence };
-    updateLiveness(detection, best);
+    await updateLiveness(detection, best);
     showRecognized(best, confidence);
     if (!isLivenessValid()) setVideoStatus(`Распознан: ${confidence}%. Проверка живого лица...`);
   } else {
@@ -1016,67 +1019,83 @@ function isLivenessValid() {
   );
 }
 
-function pointDistance(a, b) {
-  return Math.hypot(a.x - b.x, a.y - b.y);
+// Hand-rolled motion/texture heuristics turned out unreliable in practice
+// (a held-up photo scored higher than a real face on both signals — see
+// commit history). Replaced with MiniFASNet-V2, a small CNN trained
+// specifically to classify live / print-attack / replay-attack from a
+// single face crop. https://github.com/minivision-ai/Silent-Face-Anti-Spoofing
+async function loadAntiSpoofModel() {
+  if (spoofSession) return spoofSession;
+  if (spoofSessionLoading) return spoofSessionLoading;
+  if (!window.ort) return null;
+  spoofSessionLoading = (async () => {
+    try {
+      ort.env.wasm.wasmPaths = new URL('vendor/ort/', document.baseURI).href;
+      ort.env.wasm.numThreads = 1;
+      spoofSession = await ort.InferenceSession.create(PHOTO_GUARD_MODEL_URL, { executionProviders: ['wasm'] });
+      return spoofSession;
+    } catch (error) {
+      console.error('Anti-spoof model failed to load', error);
+      return null;
+    }
+  })();
+  return spoofSessionLoading;
 }
 
-function eyeAspectRatio(eye) {
-  if (!eye || eye.length < 6) return 1;
-  const verticalA = pointDistance(eye[1], eye[5]);
-  const verticalB = pointDistance(eye[2], eye[4]);
-  const horizontal = pointDistance(eye[0], eye[3]);
-  return horizontal ? (verticalA + verticalB) / (2 * horizontal) : 1;
-}
-
-function averagePoint(points) {
-  if (!points.length) return { x: 0, y: 0 };
-  const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
-  return { x: sum.x / points.length, y: sum.y / points.length };
-}
-
-// Motion alone (head sway / blink) can be faked by a hand naturally
-// tilting a held-up photo, since that produces the same kind of relative
-// landmark shift as a real head turn. Skin has fine micro-texture (pores,
-// blemishes) that a printed or screen-displayed photo usually lacks after
-// being recaptured by the camera, so we require BOTH a natural motion
-// signal AND a minimum texture/sharpness score inside the face box.
-function faceTextureScore(video, box) {
-  if (!box || box.width < 16 || box.height < 16) return null;
-  const size = 48;
-  if (!textureSampleCanvas) {
-    textureSampleCanvas = document.createElement('canvas');
-    textureSampleCanvas.width = size;
-    textureSampleCanvas.height = size;
-    textureSampleCtx = textureSampleCanvas.getContext('2d', { willReadFrequently: true });
+// Crops with a 2.7x margin around the face-box center per the model's
+// training pipeline (filename prefix "2.7_80x80"), resizes to 80x80,
+// converts to BGR [0,1] NCHW float32.
+function cropForSpoof(video, box) {
+  const size = 80;
+  const scale = 2.7;
+  if (!spoofSampleCanvas) {
+    spoofSampleCanvas = document.createElement('canvas');
+    spoofSampleCanvas.width = size;
+    spoofSampleCanvas.height = size;
+    spoofSampleCtx = spoofSampleCanvas.getContext('2d', { willReadFrequently: true });
   }
-  const inset = 0.12;
-  const sx = box.x + box.width * inset;
-  const sy = box.y + box.height * inset;
-  const sw = box.width * (1 - 2 * inset);
-  const sh = box.height * (1 - 2 * inset);
-  if (sw <= 0 || sh <= 0) return null;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const cropW = box.width * scale;
+  const cropH = box.height * scale;
+  const sx = cx - cropW / 2;
+  const sy = cy - cropH / 2;
+  spoofSampleCtx.clearRect(0, 0, size, size);
+  spoofSampleCtx.drawImage(video, sx, sy, cropW, cropH, 0, 0, size, size);
+  const { data } = spoofSampleCtx.getImageData(0, 0, size, size);
+  const chw = new Float32Array(3 * size * size);
+  const plane = size * size;
+  for (let i = 0; i < plane; i++) {
+    const r = data[i * 4] / 255;
+    const g = data[i * 4 + 1] / 255;
+    const b = data[i * 4 + 2] / 255;
+    chw[i] = b; // BGR order
+    chw[plane + i] = g;
+    chw[2 * plane + i] = r;
+  }
+  return chw;
+}
+
+function softmax3(logits) {
+  const max = Math.max(logits[0], logits[1], logits[2]);
+  const exps = [Math.exp(logits[0] - max), Math.exp(logits[1] - max), Math.exp(logits[2] - max)];
+  const sum = exps[0] + exps[1] + exps[2];
+  return exps.map((e) => e / sum);
+}
+
+async function runAntiSpoof(video, box) {
+  const session = await loadAntiSpoofModel();
+  if (!session || !box || box.width < 16 || box.height < 16) return null;
   try {
-    textureSampleCtx.drawImage(video, sx, sy, sw, sh, 0, 0, size, size);
-    const { data } = textureSampleCtx.getImageData(0, 0, size, size);
-    const gray = new Float32Array(size * size);
-    for (let i = 0; i < size * size; i++) {
-      gray[i] = 0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2];
-    }
-    let sum = 0;
-    let sumSq = 0;
-    let count = 0;
-    for (let y = 1; y < size - 1; y++) {
-      for (let x = 1; x < size - 1; x++) {
-        const idx = y * size + x;
-        const lap = gray[idx - size] + gray[idx + size] + gray[idx - 1] + gray[idx + 1] - 4 * gray[idx];
-        sum += lap;
-        sumSq += lap * lap;
-        count++;
-      }
-    }
-    const mean = sum / count;
-    return sumSq / count - mean * mean;
+    const chw = cropForSpoof(video, box);
+    const tensor = new ort.Tensor('float32', chw, [1, 3, 80, 80]);
+    const feeds = { [session.inputNames[0]]: tensor };
+    const results = await session.run(feeds);
+    const logits = results[session.outputNames[0]].data;
+    const [pLive] = softmax3(logits);
+    return pLive;
   } catch (error) {
+    console.error('Anti-spoof inference failed', error);
     return null;
   }
 }
@@ -1094,72 +1113,45 @@ function updatePhotoGuardDebug(info) {
   if (!photoGuardDebugEl) return;
   photoGuardDebugEl.textContent =
     `frames=${info.frames}\n` +
-    `noseDrift=${info.noseDrift.toFixed(4)} (need >= ${PHOTO_GUARD_NOSE_DRIFT})\n` +
-    `blinkDip=${info.blinkDip.toFixed(3)} (need >= ${PHOTO_GUARD_BLINK_DROP})\n` +
-    `texture=${info.avgTexture.toFixed(1)} (need >= ${PHOTO_GUARD_TEXTURE_MIN})\n` +
+    `pLive=${info.pLive === null ? 'n/a' : info.pLive.toFixed(3)}\n` +
+    `avgPLive=${info.avgPLive.toFixed(3)} (need >= ${PHOTO_GUARD_LIVE_THRESHOLD})\n` +
     `confirmed=${info.confirmed}`;
 }
 
-function updateLiveness(detection, emp) {
+async function updateLiveness(detection, emp) {
   if (photoGuard.empId !== emp.id) {
     photoGuard = { empId: emp.id, samples: [], confirmed: false, confirmedAt: 0 };
   }
   if (photoGuard.confirmed && Date.now() - photoGuard.confirmedAt <= PHOTO_GUARD_VALID_MS) return;
 
-  const landmarks = detection.landmarks;
-  const leftEye = landmarks.getLeftEye();
-  const rightEye = landmarks.getRightEye();
-  const nose = landmarks.getNose();
-  const jaw = landmarks.getJawOutline();
-  if (!leftEye.length || !rightEye.length || nose.length < 4 || jaw.length < 17) return;
-
-  const ear = (eyeAspectRatio(leftEye) + eyeAspectRatio(rightEye)) / 2;
-  const leftC = averagePoint(leftEye);
-  const rightC = averagePoint(rightEye);
-  const eyeMidX = (leftC.x + rightC.x) / 2;
-  const eyeMidY = (leftC.y + rightC.y) / 2;
-  const faceWidth = Math.max(1, pointDistance(jaw[0], jaw[16]));
-  const noseX = (nose[3].x - eyeMidX) / faceWidth;
-  const noseY = (nose[3].y - eyeMidY) / faceWidth;
-
   const video = document.getElementById('video-kiosk');
   const box = detection.detection && detection.detection.box;
-  const texture = video && box ? faceTextureScore(video, box) : null;
+  if (!video || !box) return;
+
+  const pLive = await runAntiSpoof(video, box);
+  if (pLive === null) {
+    // Model unavailable (failed to load / box too small) — fail open
+    // rather than permanently blocking attendance on a kiosk device.
+    photoGuard.confirmed = true;
+    photoGuard.confirmedAt = Date.now();
+    return;
+  }
 
   const now = Date.now();
-  photoGuard.samples.push({ ts: now, ear, noseX, noseY, texture });
+  photoGuard.samples.push({ ts: now, pLive });
   photoGuard.samples = photoGuard.samples.filter((s) => now - s.ts < PHOTO_GUARD_WINDOW_MS);
-  if (photoGuard.samples.length < PHOTO_GUARD_MIN_FRAMES) return;
+  if (photoGuard.samples.length < PHOTO_GUARD_MIN_FRAMES) {
+    updatePhotoGuardDebug({ frames: photoGuard.samples.length, pLive, avgPLive: pLive, confirmed: false });
+    return;
+  }
 
-  const samples = photoGuard.samples;
-  const n = samples.length;
-  const thirdLen = Math.max(2, Math.floor(n / 3));
-  const early = samples.slice(0, thirdLen);
-  const late = samples.slice(n - thirdLen);
-  const avg = (arr, key) => arr.reduce((sum, s) => sum + s[key], 0) / arr.length;
-
-  // Averaging early vs late frames cancels independent per-frame detector
-  // noise (which is ~zero-mean), while real slow head sway still shows up
-  // as a net shift between the two windows. A frozen photo only drifts
-  // because of that noise, so its early/late averages stay near-identical.
-  const noseDrift = Math.hypot(avg(late, 'noseX') - avg(early, 'noseX'), avg(late, 'noseY') - avg(early, 'noseY'));
-
-  const ears = samples.map((s) => s.ear);
-  const baselineEar = avg(samples, 'ear');
-  const minEar = Math.min(...ears);
-  const blinkDip = baselineEar > 0 ? (baselineEar - minEar) / baselineEar : 0;
-
-  const textureSamples = samples.map((s) => s.texture).filter((t) => t !== null && t !== undefined);
-  const avgTexture = textureSamples.length ? textureSamples.reduce((a, b) => a + b, 0) / textureSamples.length : 0;
-  const hasNaturalMotion = noseDrift >= PHOTO_GUARD_NOSE_DRIFT || blinkDip >= PHOTO_GUARD_BLINK_DROP;
-  const hasNaturalTexture = avgTexture >= PHOTO_GUARD_TEXTURE_MIN;
-
-  if (hasNaturalMotion && hasNaturalTexture) {
+  const avgPLive = photoGuard.samples.reduce((sum, s) => sum + s.pLive, 0) / photoGuard.samples.length;
+  if (avgPLive >= PHOTO_GUARD_LIVE_THRESHOLD) {
     photoGuard.confirmed = true;
     photoGuard.confirmedAt = now;
   }
 
-  updatePhotoGuardDebug({ frames: n, noseDrift, blinkDip, avgTexture, confirmed: photoGuard.confirmed });
+  updatePhotoGuardDebug({ frames: photoGuard.samples.length, pLive, avgPLive, confirmed: photoGuard.confirmed });
 }
 
 function setRecognitionIdle(text) {

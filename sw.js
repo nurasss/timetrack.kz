@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timetrack-pwa-v8';
+const CACHE_NAME = 'timetrack-pwa-v9';
 const STATIC_ASSETS = [
   './index.html',
   './admin.html',
@@ -15,7 +15,11 @@ const STATIC_ASSETS = [
   './models/ssd_mobilenetv1_model-shard1',
   './models/ssd_mobilenetv1_model-shard2',
   './models/tiny_face_detector_model-weights_manifest.json',
-  './models/tiny_face_detector_model-shard1'
+  './models/tiny_face_detector_model-shard1',
+  './models/minifasnet_v2.onnx',
+  './vendor/ort/ort.min.js',
+  './vendor/ort/ort-wasm-simd-threaded.mjs',
+  './vendor/ort/ort-wasm-simd-threaded.wasm'
 ];
 
 self.addEventListener('install', (event) => {
