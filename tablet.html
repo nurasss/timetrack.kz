@@ -483,10 +483,10 @@ let lastFullMatchAt = 0;
 let lastVisualActivityAt = Date.now();
 const PHOTO_GUARD_ENABLED = true;
 const PHOTO_GUARD_VALID_MS = 10000;
-const PHOTO_GUARD_WINDOW_MS = 2000;
-const PHOTO_GUARD_MIN_FRAMES = 5;
-const PHOTO_GUARD_EAR_RANGE = 0.012;
-const PHOTO_GUARD_NOSE_DRIFT = 0.004;
+const PHOTO_GUARD_WINDOW_MS = 2500;
+const PHOTO_GUARD_MIN_FRAMES = 9;
+const PHOTO_GUARD_NOSE_DRIFT = 0.008;
+const PHOTO_GUARD_BLINK_DROP = 0.2;
 let photoGuard = { empId: null, samples: [], confirmed: false, confirmedAt: 0 };
 const FULL_MATCH_INTERVAL_MS = 2200;
 const DUPLICATE_WINDOW_MS = 120000;
@@ -1056,13 +1056,25 @@ function updateLiveness(detection, emp) {
   photoGuard.samples = photoGuard.samples.filter((s) => now - s.ts < PHOTO_GUARD_WINDOW_MS);
   if (photoGuard.samples.length < PHOTO_GUARD_MIN_FRAMES) return;
 
-  const ears = photoGuard.samples.map((s) => s.ear);
-  const xs = photoGuard.samples.map((s) => s.noseX);
-  const ys = photoGuard.samples.map((s) => s.noseY);
-  const earRange = Math.max(...ears) - Math.min(...ears);
-  const noseDrift = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys));
+  const samples = photoGuard.samples;
+  const n = samples.length;
+  const thirdLen = Math.max(2, Math.floor(n / 3));
+  const early = samples.slice(0, thirdLen);
+  const late = samples.slice(n - thirdLen);
+  const avg = (arr, key) => arr.reduce((sum, s) => sum + s[key], 0) / arr.length;
 
-  if (earRange >= PHOTO_GUARD_EAR_RANGE || noseDrift >= PHOTO_GUARD_NOSE_DRIFT) {
+  // Averaging early vs late frames cancels independent per-frame detector
+  // noise (which is ~zero-mean), while real slow head sway still shows up
+  // as a net shift between the two windows. A frozen photo only drifts
+  // because of that noise, so its early/late averages stay near-identical.
+  const noseDrift = Math.hypot(avg(late, 'noseX') - avg(early, 'noseX'), avg(late, 'noseY') - avg(early, 'noseY'));
+
+  const ears = samples.map((s) => s.ear);
+  const baselineEar = avg(samples, 'ear');
+  const minEar = Math.min(...ears);
+  const blinkDip = baselineEar > 0 ? (baselineEar - minEar) / baselineEar : 0;
+
+  if (noseDrift >= PHOTO_GUARD_NOSE_DRIFT || blinkDip >= PHOTO_GUARD_BLINK_DROP) {
     photoGuard.confirmed = true;
     photoGuard.confirmedAt = now;
   }
