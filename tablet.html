@@ -537,10 +537,11 @@ let liveness = {
 
 const LIVENESS_ENABLED = true;       // one-blink (or head-turn) confirmation
 const LIVENESS_CONFIRM_MS = 10000;
-const BLINK_CLOSE_RATIO = 0.82;
+const BLINK_DEEP_RATIO = 0.72;       // a single frame this far below baseline = a clear blink, confirm immediately
+const BLINK_CLOSE_RATIO = 0.86;      // shallower dip → mark "closing", confirm on reopen (two-phase fallback)
 const BLINK_OPEN_RATIO = 0.9;
-const MIN_CLOSED_EAR = 0.12;
-const MIN_OPEN_EAR = 0.16;
+const MIN_CLOSED_EAR = 0.16;
+const MIN_OPEN_EAR = 0.18;
 const HEAD_TURN_THRESHOLD = 0.045;
 
 // --- Active-flash (photometric) liveness ---------------------------------
@@ -1044,7 +1045,7 @@ function quickDetectorOptions() {
 function startDetection() {
   if (sleeping) return;
   if (detectionTimer) clearInterval(detectionTimer);
-  detectionTimer = setInterval(detectFace, 200); // a bit faster so a quick blink isn't missed
+  detectionTimer = setInterval(detectFace, 130); // fast sampling so a quick blink's closed phase is caught
 }
 
 async function detectFace() {
@@ -1244,6 +1245,7 @@ function updateLiveness(detection, emp) {
   }
 
   const baseline = liveness.openEar || openness || 0.22;
+  const deepThreshold = Math.max(MIN_CLOSED_EAR, baseline * BLINK_DEEP_RATIO);
   const closedThreshold = Math.max(MIN_CLOSED_EAR, baseline * BLINK_CLOSE_RATIO);
   const openThreshold = Math.max(MIN_OPEN_EAR, baseline * BLINK_OPEN_RATIO);
 
@@ -1254,6 +1256,15 @@ function updateLiveness(detection, emp) {
     return;
   }
 
+  // A clear dip in a single frame is enough — at this sampling rate we often
+  // only catch one frame of the eyes mid-blink, so don't also require us to
+  // catch the reopen frame.
+  if (baseline > MIN_OPEN_EAR && openness < deepThreshold) {
+    confirmLiveness('Моргание подтверждено', 'blink');
+    return;
+  }
+
+  // Two-phase fallback for shallower captures: see a partial close, then reopen.
   if (!liveness.blinkClosed && openness < closedThreshold) {
     liveness.blinkClosed = true;
     setVideoStatus('Моргание замечено — откройте глаза');
