@@ -523,6 +523,7 @@ let waking = false;
 let modelsLoadedFor = '';
 let currentDetected = null;
 let lastFullMatchAt = 0;
+let quickMissCount = 0;
 let lastVisualActivityAt = Date.now();
 let liveness = {
   empId: null,
@@ -542,6 +543,9 @@ const BLINK_CLOSE_RATIO = 0.86;      // shallower dip → mark "closing", confir
 const BLINK_OPEN_RATIO = 0.9;
 const MIN_CLOSED_EAR = 0.16;
 const MIN_OPEN_EAR = 0.18;
+const QUICK_MISS_TOLERANCE = 4;      // keep recognition/blink state through this many missed frames (a blink drops detection briefly)
+const BLINK_DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+let blinkDebugEl = null;
 const HEAD_TURN_THRESHOLD = 0.045;
 
 // --- Active-flash (photometric) liveness ---------------------------------
@@ -1016,7 +1020,8 @@ async function loadModels() {
 
   setVideoStatus(model === 'ssd' ? 'Загрузка точной модели...' : 'Загрузка быстрой модели...');
   const tasks = [
-    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),  // for recognition (keeps enrolled descriptors compatible)
+    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),      // full model — accurate eye landmarks for blink
     faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
   ];
   if (model === 'ssd') {
@@ -1038,8 +1043,8 @@ function detectorOptions() {
 
 function quickDetectorOptions() {
   return state.settings.recognitionModel === 'ssd'
-    ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.45 })
-    : new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.35 });
+    ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
+    : new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
 }
 
 function startDetection() {
@@ -1060,13 +1065,20 @@ async function detectFace() {
     if (canDoQuickLiveness) {
       const detection = await faceapi
         .detectSingleFace(video, quickDetectorOptions())
-        .withFaceLandmarks(true);
-      drawDetection(detection, video);
+        .withFaceLandmarks(false); // full landmark model = accurate eyelid tracking for blink
       if (!detection) {
-        currentDetected = null;
-        resetLiveness();
-        setRecognitionIdle('Лицо не найдено');
+        // A blink (closed/blurred eyes) often drops detection for a frame or
+        // two — don't wipe recognition/blink progress on a brief miss.
+        quickMissCount += 1;
+        if (quickMissCount > QUICK_MISS_TOLERANCE) {
+          currentDetected = null;
+          resetLiveness();
+          clearDetectionCanvas();
+          setRecognitionIdle('Лицо не найдено');
+        }
       } else {
+        quickMissCount = 0;
+        drawDetection(detection, video);
         noteVisualActivity();
         updateLiveness(detection, currentDetected.employee);
         showRecognized(currentDetected.employee, currentDetected.confidence);
@@ -1077,6 +1089,7 @@ async function detectFace() {
         .withFaceLandmarks(true)
         .withFaceDescriptor();
       lastFullMatchAt = Date.now();
+      quickMissCount = 0;
       drawDetection(detection, video);
       recognize(detection);
     }
@@ -1248,6 +1261,7 @@ function updateLiveness(detection, emp) {
   const deepThreshold = Math.max(MIN_CLOSED_EAR, baseline * BLINK_DEEP_RATIO);
   const closedThreshold = Math.max(MIN_CLOSED_EAR, baseline * BLINK_CLOSE_RATIO);
   const openThreshold = Math.max(MIN_OPEN_EAR, baseline * BLINK_OPEN_RATIO);
+  updateBlinkDebug(openness, baseline, deepThreshold);
 
   if (turn < -HEAD_TURN_THRESHOLD) liveness.headLeft = true;
   if (turn > HEAD_TURN_THRESHOLD) liveness.headRight = true;
@@ -1274,6 +1288,21 @@ function updateLiveness(detection, emp) {
   if (liveness.blinkClosed && openness > openThreshold) {
     confirmLiveness('Моргание подтверждено', 'blink');
   }
+}
+
+function updateBlinkDebug(openness, baseline, deepThreshold) {
+  if (!BLINK_DEBUG) return;
+  if (!blinkDebugEl) {
+    blinkDebugEl = document.createElement('div');
+    blinkDebugEl.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.8);color:#0f0;font:12px monospace;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;';
+    document.body.appendChild(blinkDebugEl);
+  }
+  const ratio = baseline ? openness / baseline : 0;
+  blinkDebugEl.textContent =
+    `EAR=${openness.toFixed(3)} baseline=${baseline.toFixed(3)}\n` +
+    `ratio=${ratio.toFixed(2)} (blink if < ${BLINK_DEEP_RATIO})\n` +
+    `deepThresh=${deepThreshold.toFixed(3)} miss=${quickMissCount}\n` +
+    `closed=${liveness.blinkClosed} confirmed=${liveness.confirmed}`;
 }
 
 function maybeRunFlashCheck(detection, emp) {

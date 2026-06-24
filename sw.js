@@ -1,4 +1,4 @@
-const CACHE_NAME = 'timetrack-pwa-v18';
+const CACHE_NAME = 'timetrack-pwa-v19';
 const STATIC_ASSETS = [
   './index.html',
   './admin.html',
@@ -8,6 +8,8 @@ const STATIC_ASSETS = [
   './icons/timetrack-512.png',
   './models/face_landmark_68_tiny_model-weights_manifest.json',
   './models/face_landmark_68_tiny_model-shard1',
+  './models/face_landmark_68_model-weights_manifest.json',
+  './models/face_landmark_68_model-shard1',
   './models/face_recognition_model-weights_manifest.json',
   './models/face_recognition_model-shard1',
   './models/face_recognition_model-shard2',
