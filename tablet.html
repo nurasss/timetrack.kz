@@ -459,7 +459,7 @@
       <div>
         <div class="rec-name" id="rec-name">Поднесите планшет ближе к лицу</div>
         <div class="rec-meta" id="rec-meta">После распознавания станут доступны кнопки отметки</div>
-        <div class="rec-hint" id="rec-hint">Проверяем, что лицо живое — секунду, и кнопки активируются</div>
+        <div class="rec-hint" id="rec-hint">Моргните, чтобы подтвердить, что вы живой человек — и кнопки активируются</div>
       </div>
     </div>
   </div>
@@ -535,7 +535,7 @@ let liveness = {
   method: '',
 };
 
-const LIVENESS_ENABLED = false;
+const LIVENESS_ENABLED = true;       // one-blink (or head-turn) confirmation
 const LIVENESS_CONFIRM_MS = 10000;
 const BLINK_CLOSE_RATIO = 0.82;
 const BLINK_OPEN_RATIO = 0.9;
@@ -549,7 +549,7 @@ const HEAD_TURN_THRESHOLD = 0.045;
 // (closer to the screen) than on the cheeks/edges, producing a soft radial
 // gradient. A flat photo brightens uniformly; a phone screen produces a hard
 // specular spike; an overpowering external light produces no change at all.
-const FLASH_LIVENESS_ENABLED = true;
+const FLASH_LIVENESS_ENABLED = false; // optical/flash approach: dead on this hardware (camera auto-exposure cancels the signal)
 const FLASH_DEBUG = new URLSearchParams(location.search).get('debug') === '1';
 const FLASH_VALID_MS = 10000;        // how long one successful check stays valid
 const FLASH_COOLDOWN_MS = 1600;      // min gap between flash attempts
@@ -1044,7 +1044,7 @@ function quickDetectorOptions() {
 function startDetection() {
   if (sleeping) return;
   if (detectionTimer) clearInterval(detectionTimer);
-  detectionTimer = setInterval(detectFace, 260);
+  detectionTimer = setInterval(detectFace, 200); // a bit faster so a quick blink isn't missed
 }
 
 async function detectFace() {
@@ -1134,7 +1134,7 @@ function recognize(detection) {
     currentDetected = { employee: best, distance: bestDistance, confidence };
     updateLiveness(detection, best);
     showRecognized(best, confidence);
-    if (!isLivenessValid()) setVideoStatus(`Распознан: ${confidence}%. Проверка живого лица…`);
+    if (!isLivenessValid()) setVideoStatus(`Распознан: ${confidence}%. Моргните, чтобы подтвердить`);
   } else {
     currentDetected = null;
     resetLiveness();
@@ -1516,7 +1516,7 @@ async function markAttendance(type) {
     return;
   }
   if (!isLivenessValid()) {
-    toast('Подождите — проверяем, что лицо живое', 'danger');
+    toast('Моргните, чтобы подтвердить присутствие', 'danger');
     return;
   }
 
