@@ -407,6 +407,73 @@
 
   .diag { position: absolute; opacity: 0; pointer-events: none; left: -9999px; }
 
+  /* Liveness instruction modal — shows how to confirm (blink / turn head). */
+  .liveness-guide-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 24px;
+  }
+  .liveness-guide-overlay.visible { display: grid; }
+
+  .liveness-guide-card {
+    width: min(360px, 100%);
+    padding: 28px 26px 24px;
+    border-radius: 24px;
+    background: var(--glass-dark);
+    border: 1px solid var(--glass-dark-border);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .liveness-guide-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .liveness-guide-sub { color: var(--ink-dim); font-size: 14px; margin-bottom: 18px; }
+
+  .liveness-scene { perspective: 600px; margin-bottom: 8px; }
+
+  @keyframes liveness-head-turn {
+    0% { transform: rotateY(0deg); }
+    20% { transform: rotateY(-35deg); }
+    40% { transform: rotateY(0deg); }
+    60% { transform: rotateY(35deg); }
+    80%, 100% { transform: rotateY(0deg); }
+  }
+  @keyframes liveness-arrow-left {
+    0%, 10%, 30%, 100% { opacity: 0; transform: translateX(10px); }
+    20% { opacity: 1; transform: translateX(0px); }
+  }
+  @keyframes liveness-arrow-right {
+    0%, 50%, 70%, 100% { opacity: 0; transform: translateX(-10px); }
+    60% { opacity: 1; transform: translateX(0px); }
+  }
+  .liveness-head-group {
+    transform-origin: center;
+    transform-style: preserve-3d;
+    animation: liveness-head-turn 4s infinite cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .liveness-arrow-l { animation: liveness-arrow-left 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+  .liveness-arrow-r { animation: liveness-arrow-right 4s infinite cubic-bezier(0.4, 0, 0.2, 1); }
+
+  .liveness-guide-btn {
+    margin-top: 4px;
+    width: 100%;
+    min-height: 52px;
+    border-radius: 14px;
+    background: var(--arrive-active);
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .liveness-guide-btn:active { transform: translateY(1px); }
+
   @media (max-width: 720px) {
     .app { padding: 12px; gap: 12px; }
     .topbar { grid-template-columns: 1fr; gap: 8px; padding: 14px 18px; text-align: center; }
@@ -439,6 +506,38 @@
 
   <div class="sleep-layer" id="sleep-layer">
     <div class="sleep-card"><i data-lucide="moon"></i><span>Спящий режим</span></div>
+  </div>
+
+  <div class="liveness-guide-overlay" id="liveness-guide">
+    <div class="liveness-guide-card">
+      <div class="liveness-guide-title">Проверка личности</div>
+      <div class="liveness-guide-sub">Моргните или слегка поверните голову, не выходя за рамку</div>
+      <div class="liveness-scene">
+        <svg viewBox="0 0 300 300" width="220" height="220" style="overflow: visible;">
+          <ellipse cx="150" cy="150" rx="100" ry="130"
+                   fill="none" stroke="#22c55e" stroke-width="4" stroke-dasharray="10 10"
+                   opacity="0.7" />
+          <g class="liveness-arrow-l">
+            <path d="M 30 150 L 60 130 L 60 170 Z" fill="#22c55e" />
+            <rect x="60" y="145" width="20" height="10" fill="#22c55e" />
+          </g>
+          <g class="liveness-arrow-r">
+            <path d="M 270 150 L 240 130 L 240 170 Z" fill="#22c55e" />
+            <rect x="220" y="145" width="20" height="10" fill="#22c55e" />
+          </g>
+          <g class="liveness-head-group">
+            <circle cx="150" cy="150" r="75" fill="#cbd5e1" opacity="0.5" transform="translate(5, 0) scale(0.95)"/>
+            <circle cx="150" cy="150" r="75" fill="#f8fafc" />
+            <path d="M 75 150 C 75 80, 225 80, 225 150 Q 150 110, 75 150 Z" fill="#475569" />
+            <circle cx="125" cy="140" r="6" fill="#0f172a" />
+            <circle cx="175" cy="140" r="6" fill="#0f172a" />
+            <path d="M 150 140 L 150 160 L 145 160" stroke="#94a3b8" stroke-width="3" stroke-linecap="round" fill="none" />
+            <path d="M 135 175 Q 150 185 165 175" stroke="#0f172a" stroke-width="3" stroke-linecap="round" fill="none" />
+          </g>
+        </svg>
+      </div>
+      <button class="liveness-guide-btn" onclick="dismissLivenessGuide()">Понятно</button>
+    </div>
   </div>
 
   <header class="topbar">
@@ -574,6 +673,7 @@ let flashCanvas = null;
 let flashCtx = null;
 let flashDebugEl = null;
 let wakeLockSentinel = null;
+let livenessGuideShownFor = null; // empId we've already shown the instruction modal for
 const FULL_MATCH_INTERVAL_MS = 2200;
 const DUPLICATE_WINDOW_MS = 120000;
 const SLEEP_AFTER_MS = 45000;
@@ -957,6 +1057,24 @@ function setFaceGuideVisible(visible) {
   if (guide) guide.hidden = !visible;
 }
 
+// Shown once per pending-recognition session — explains blinking/turning the
+// head to confirm liveness. Dismissed manually or once liveness is confirmed.
+function maybeShowLivenessGuide(empId) {
+  if (livenessGuideShownFor === empId) return;
+  livenessGuideShownFor = empId;
+  const el = document.getElementById('liveness-guide');
+  if (el) el.classList.add('visible');
+}
+
+function hideLivenessGuide() {
+  const el = document.getElementById('liveness-guide');
+  if (el) el.classList.remove('visible');
+}
+
+function dismissLivenessGuide() {
+  hideLivenessGuide();
+}
+
 // Diagnostic only (?debug=1): shows whether the camera lets the browser lock
 // exposure / white balance — the backup plan if greenness alone isn't enough.
 function probeCameraCaps() {
@@ -1168,6 +1286,8 @@ function resetLiveness(empId = null) {
     headRight: false,
     method: '',
   };
+  livenessGuideShownFor = null;
+  hideLivenessGuide();
   // Preserve the cooldown/run flags so detection flicker can't spam flashes.
   flashGuard = {
     empId,
@@ -1515,6 +1635,7 @@ function setRecognitionIdle(text) {
   document.getElementById('rec-name').textContent = 'Поднесите планшет ближе к лицу';
   document.getElementById('rec-meta').textContent = text || 'После распознавания станут доступны кнопки отметки';
   setButtons(false);
+  hideLivenessGuide();
   if (window.lucide) window.lucide.createIcons();
 }
 
@@ -1525,6 +1646,7 @@ function setRecognitionUnknown(text) {
   document.getElementById('rec-name').textContent = text || 'Сотрудник не распознан';
   document.getElementById('rec-meta').textContent = 'Попробуйте другой ракурс или обновите фото в админке';
   setButtons(false);
+  hideLivenessGuide();
   if (window.lucide) window.lucide.createIcons();
 }
 
@@ -1538,6 +1660,8 @@ function showRecognized(emp, confidence) {
   const role = emp.position || 'Сотрудник';
   document.getElementById('rec-meta').textContent = `${role} · Распознавание ${confidence}%`;
   setButtons(verified, emp);
+  if (verified) hideLivenessGuide();
+  else maybeShowLivenessGuide(emp.id);
 }
 
 function setButtons(enabled, emp = currentDetected?.employee) {
