@@ -71,6 +71,33 @@
 
   .bg-canvas { pointer-events: none; }
 
+  /* Full-screen green flash used by the photometric liveness check. */
+  .flash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #00ff66;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .flash-overlay.on { opacity: 1; }
+
+  /* Soft oval guide so the user centers their face at the right distance. */
+  .face-guide {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 50%;
+    width: min(280px, 42vw);
+    height: min(360px, 54vw);
+    transform: translate(-50%, -58%);
+    border: 2px dashed rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.18);
+  }
+  .face-guide[hidden] { display: none; }
+
   .bg-fallback {
     position: absolute;
     inset: 0;
@@ -400,6 +427,8 @@
 <div class="app" id="app">
   <video id="video-kiosk" class="bg-video" autoplay muted playsinline></video>
   <canvas id="canvas-kiosk" class="bg-canvas"></canvas>
+  <div class="face-guide" id="face-guide" hidden></div>
+  <div class="flash-overlay" id="flash-overlay"></div>
 
   <div class="bg-fallback" id="camera-empty">
     <div>
@@ -430,7 +459,7 @@
       <div>
         <div class="rec-name" id="rec-name">Поднесите планшет ближе к лицу</div>
         <div class="rec-meta" id="rec-meta">После распознавания станут доступны кнопки отметки</div>
-        <div class="rec-hint" id="rec-hint">Моргните или поверните голову, чтобы подтвердить, затем нажмите соответствующую кнопку</div>
+        <div class="rec-hint" id="rec-hint">Проверяем, что лицо живое — секунду, и кнопки активируются</div>
       </div>
     </div>
   </div>
@@ -513,6 +542,32 @@ const BLINK_OPEN_RATIO = 0.9;
 const MIN_CLOSED_EAR = 0.12;
 const MIN_OPEN_EAR = 0.16;
 const HEAD_TURN_THRESHOLD = 0.045;
+
+// --- Active-flash (photometric) liveness ---------------------------------
+// The screen briefly flashes bright green; we compare a face crop before vs.
+// during the flash. A real 3D face reflects more light on the nose/forehead
+// (closer to the screen) than on the cheeks/edges, producing a soft radial
+// gradient. A flat photo brightens uniformly; a phone screen produces a hard
+// specular spike; an overpowering external light produces no change at all.
+const FLASH_LIVENESS_ENABLED = true;
+const FLASH_DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+const FLASH_VALID_MS = 10000;        // how long one successful check stays valid
+const FLASH_COOLDOWN_MS = 1600;      // min gap between flash attempts
+const FLASH_SETTLE_MS = 130;         // wait after flash-on before capturing frame B
+const FLASH_ANALYZE_SIZE = 64;       // downscaled analysis resolution (square)
+const FLASH_MIN_FACE_PX = 90;        // min face-box side to attempt a check
+// Decision thresholds — these WILL need on-device calibration via ?debug=1.
+const FLASH_AMBIENT_MAX = 232;       // frame-A green mean above this = oversaturated
+const FLASH_MIN_MEAN_DELTA = 6;      // min avg green increase to count as reflection
+const FLASH_MIN_GRADIENT = 4;        // (center − edge) green delta = the 3D shape cue
+const FLASH_SPECULAR_MAX = 90;       // per-pixel delta above this counts as a "hot" pixel
+const FLASH_SPIKE_MIN = 55;          // a localized bright spot must reach at least this delta
+const FLASH_SPIKE_RATIO = 6;         // maxDelta / meanDelta above this = concentrated glare
+let flashGuard = { empId: null, confirmed: false, confirmedAt: 0, running: false, lastCheckAt: 0, lastReason: '' };
+let flashCanvas = null;
+let flashCtx = null;
+let flashDebugEl = null;
+let wakeLockSentinel = null;
 const FULL_MATCH_INTERVAL_MS = 2200;
 const DUPLICATE_WINDOW_MS = 120000;
 const SLEEP_AFTER_MS = 45000;
@@ -803,6 +858,7 @@ function enterSleepMode() {
   clearDetectionCanvas();
   setButtons(false);
   document.querySelector('.app').classList.add('sleeping');
+  setFaceGuideVisible(false);
   setRecognitionIdle('Ожидание движения');
   setVideoStatus('Спящий режим');
 }
@@ -818,6 +874,7 @@ async function wakeFromSleep() {
     if (!sleeping) return;
     sleeping = false;
     document.querySelector('.app').classList.remove('sleeping');
+    setFaceGuideVisible(FLASH_LIVENESS_ENABLED);
     lastFullMatchAt = 0;
     noteVisualActivity();
     setRecognitionIdle('Поднесите планшет ближе к лицу');
@@ -873,6 +930,8 @@ async function startCamera() {
     const video = document.getElementById('video-kiosk');
     video.srcObject = kioskStream;
     document.getElementById('camera-empty').style.display = 'none';
+    setFaceGuideVisible(FLASH_LIVENESS_ENABLED);
+    requestWakeLock();
     setVideoStatus('Камера активна');
     noteVisualActivity();
     startMotionWatch();
@@ -881,9 +940,30 @@ async function startCamera() {
   } catch (error) {
     setVideoStatus('Нет доступа к камере');
     document.getElementById('camera-empty').style.display = 'grid';
+    setFaceGuideVisible(false);
     toast('Не удалось открыть камеру. Проверьте разрешения браузера.', 'danger');
   }
 }
+
+function setFaceGuideVisible(visible) {
+  const guide = document.getElementById('face-guide');
+  if (guide) guide.hidden = !visible;
+}
+
+// Keep the screen awake at full brightness so the flash always has enough
+// light; Android auto-dim would otherwise weaken the reflection signal.
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLockSentinel) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+    }
+  } catch (_) { /* not supported / denied — non-fatal */ }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && kioskStream) requestWakeLock();
+});
 
 async function restartCamera() {
   const btn = document.getElementById('btn-reload-camera');
@@ -943,6 +1023,7 @@ function startDetection() {
 
 async function detectFace() {
   if (sleeping || detecting || !modelsLoadedFor) return;
+  if (flashGuard.running) return; // pause detection while the screen is flashing
   const video = document.getElementById('video-kiosk');
   if (video.readyState < 2) return;
 
@@ -1027,7 +1108,7 @@ function recognize(detection) {
     currentDetected = { employee: best, distance: bestDistance, confidence };
     updateLiveness(detection, best);
     showRecognized(best, confidence);
-    if (!isLivenessValid()) setVideoStatus(`Распознан: ${confidence}%. Моргните или поверните голову`);
+    if (!isLivenessValid()) setVideoStatus(`Распознан: ${confidence}%. Проверка живого лица…`);
   } else {
     currentDetected = null;
     resetLiveness();
@@ -1047,10 +1128,26 @@ function resetLiveness(empId = null) {
     headRight: false,
     method: '',
   };
+  // Preserve the cooldown/run flags so detection flicker can't spam flashes.
+  flashGuard = {
+    empId,
+    confirmed: false,
+    confirmedAt: 0,
+    running: Boolean(flashGuard && flashGuard.running),
+    lastCheckAt: (flashGuard && flashGuard.lastCheckAt) || 0,
+    lastReason: (flashGuard && flashGuard.lastReason) || '',
+  };
 }
 
 function isLivenessValid() {
   if (!currentDetected) return false;
+  if (FLASH_LIVENESS_ENABLED) {
+    return Boolean(
+      flashGuard.empId === currentDetected.employee.id &&
+      flashGuard.confirmed &&
+      Date.now() - flashGuard.confirmedAt <= FLASH_VALID_MS
+    );
+  }
   if (!LIVENESS_ENABLED) return true;
   return Boolean(
     liveness.empId === currentDetected.employee.id &&
@@ -1099,6 +1196,12 @@ function confirmLiveness(message, method) {
 }
 
 function updateLiveness(detection, emp) {
+  if (FLASH_LIVENESS_ENABLED) {
+    if (flashGuard.empId !== emp.id) resetLiveness(emp.id);
+    maybeRunFlashCheck(detection, emp);
+    return;
+  }
+
   if (liveness.empId !== emp.id) resetLiveness(emp.id);
   if (isLivenessValid()) return;
 
@@ -1134,6 +1237,193 @@ function updateLiveness(detection, emp) {
   if (liveness.blinkClosed && openness > openThreshold) {
     confirmLiveness('Моргание подтверждено', 'blink');
   }
+}
+
+function maybeRunFlashCheck(detection, emp) {
+  if (!FLASH_LIVENESS_ENABLED) return;
+  if (flashGuard.running) return;
+  if (flashGuard.confirmed && Date.now() - flashGuard.confirmedAt <= FLASH_VALID_MS) return;
+  if (Date.now() - flashGuard.lastCheckAt < FLASH_COOLDOWN_MS) return;
+  if (!detection || !detection.detection) return;
+  const box = detection.detection.box;
+  if (Math.min(box.width, box.height) < FLASH_MIN_FACE_PX) {
+    setVideoStatus('Подойдите ближе к камере');
+    return;
+  }
+  runFlashCheck(emp, detection);
+}
+
+function showFlash() {
+  const el = document.getElementById('flash-overlay');
+  if (el) el.classList.add('on');
+}
+
+function hideFlash() {
+  const el = document.getElementById('flash-overlay');
+  if (el) el.classList.remove('on');
+}
+
+// Force two paints so the screen actually emits the flash, then let the
+// camera buffer catch up before grabbing frame B.
+function flashSettle(ms) {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, ms)));
+  });
+}
+
+function captureFlashFrame(video, rx, ry, rw, rh) {
+  const S = FLASH_ANALYZE_SIZE;
+  if (!flashCanvas) {
+    flashCanvas = document.createElement('canvas');
+    flashCanvas.width = S;
+    flashCanvas.height = S;
+    flashCtx = flashCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  flashCtx.drawImage(video, rx, ry, rw, rh, 0, 0, S, S);
+  return flashCtx.getImageData(0, 0, S, S).data;
+}
+
+// Eye rectangles (in analysis-space) so glasses glare is excluded from stats.
+function flashEyeBoxes(landmarks, rx, ry, rw, rh) {
+  const S = FLASH_ANALYZE_SIZE;
+  const boxes = [];
+  [landmarks.getLeftEye(), landmarks.getRightEye()].forEach((eye) => {
+    if (!eye || !eye.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    eye.forEach((p) => {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    });
+    const padX = (maxX - minX) * 0.6;
+    const padY = (maxY - minY) * 0.9;
+    boxes.push({
+      x0: Math.floor((minX - padX - rx) / rw * S),
+      y0: Math.floor((minY - padY - ry) / rh * S),
+      x1: Math.ceil((maxX + padX - rx) / rw * S),
+      y1: Math.ceil((maxY + padY - ry) / rh * S),
+    });
+  });
+  return boxes;
+}
+
+function analyzeFlashDelta(a, b, eyeBoxes) {
+  const S = FLASH_ANALYZE_SIZE;
+  const cx = (S - 1) / 2;
+  const cy = (S - 1) / 2;
+  const maxR = Math.hypot(cx, cy);
+  let sumA = 0, nA = 0, sumD = 0, n = 0;
+  let cSum = 0, cN = 0, eSum = 0, eN = 0, maxD = -Infinity, hotN = 0;
+  const inEye = (x, y) => eyeBoxes.some((eb) => x >= eb.x0 && x <= eb.x1 && y >= eb.y0 && y <= eb.y1);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      if (inEye(x, y)) continue;
+      const i = (y * S + x) * 4 + 1; // green channel
+      const ga = a[i];
+      const d = b[i] - ga;
+      sumA += ga; nA++;
+      sumD += d; n++;
+      if (d > maxD) maxD = d;
+      if (d > FLASH_SPECULAR_MAX) hotN++;
+      const r = Math.hypot(x - cx, y - cy) / maxR;
+      if (r < 0.45) { cSum += d; cN++; }
+      else if (r > 0.7) { eSum += d; eN++; }
+    }
+  }
+  const centerD = cN ? cSum / cN : 0;
+  const edgeD = eN ? eSum / eN : 0;
+  const meanD = n ? sumD / n : 0;
+  const safeMaxD = maxD === -Infinity ? 0 : maxD;
+  return {
+    meanA: nA ? sumA / nA : 0,
+    meanD,
+    centerD,
+    edgeD,
+    gradient: centerD - edgeD,
+    maxD: safeMaxD,
+    hotFraction: n ? hotN / n : 0,
+    spikeRatio: safeMaxD / Math.max(1, meanD),
+  };
+}
+
+function decideFlash(m) {
+  if (m.meanA >= FLASH_AMBIENT_MAX) return { live: false, reason: 'ambient', message: 'Слишком яркий свет — отойдите от окна' };
+  if (m.meanD < FLASH_MIN_MEAN_DELTA) return { live: false, reason: 'no-reflection', message: 'Поднесите лицо ближе к экрану' };
+  if (m.maxD >= FLASH_SPIKE_MIN && m.spikeRatio >= FLASH_SPIKE_RATIO) return { live: false, reason: 'specular', message: 'Уберите телефон/экран от камеры' };
+  if (m.gradient < FLASH_MIN_GRADIENT) return { live: false, reason: 'flat', message: 'Похоже на фото — покажите живое лицо' };
+  return { live: true, reason: 'live', message: 'Живое лицо подтверждено' };
+}
+
+function flashConfirm(emp, reason) {
+  flashGuard.confirmed = true;
+  flashGuard.confirmedAt = Date.now();
+  flashGuard.lastReason = reason;
+  if (currentDetected && currentDetected.employee.id === emp.id) {
+    showRecognized(emp, currentDetected.confidence);
+  }
+}
+
+async function runFlashCheck(emp, detection) {
+  flashGuard.running = true;
+  flashGuard.lastCheckAt = Date.now();
+  const video = document.getElementById('video-kiosk');
+  try {
+    if (!video || video.readyState < 2 || !video.videoWidth) { flashConfirm(emp, 'failopen:no-video'); return; }
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const box = detection.detection.box;
+    const pad = 0.12;
+    const rx = Math.max(0, box.x - box.width * pad);
+    const ry = Math.max(0, box.y - box.height * pad);
+    const rw = Math.min(vw - rx, box.width * (1 + 2 * pad));
+    const rh = Math.min(vh - ry, box.height * (1 + 2 * pad));
+    if (rw < 20 || rh < 20) { flashConfirm(emp, 'failopen:small'); return; }
+
+    const eyeBoxes = flashEyeBoxes(detection.landmarks, rx, ry, rw, rh);
+    const frameA = captureFlashFrame(video, rx, ry, rw, rh);
+    showFlash();
+    await flashSettle(FLASH_SETTLE_MS);
+    const frameB = captureFlashFrame(video, rx, ry, rw, rh);
+    hideFlash();
+
+    const metrics = analyzeFlashDelta(frameA, frameB, eyeBoxes);
+    const decision = decideFlash(metrics);
+    updateFlashDebug(metrics, decision);
+
+    if (decision.live) {
+      flashConfirm(emp, 'live');
+      setVideoStatus('Живое лицо подтверждено');
+    } else {
+      flashGuard.confirmed = false;
+      flashGuard.lastReason = decision.reason;
+      setVideoStatus(decision.message);
+    }
+  } catch (error) {
+    hideFlash();
+    // Never brick attendance on a technical failure — fail open.
+    flashConfirm(emp, 'failopen:error');
+  } finally {
+    flashGuard.running = false;
+  }
+}
+
+function ensureFlashDebug() {
+  if (!FLASH_DEBUG || flashDebugEl) return;
+  flashDebugEl = document.createElement('div');
+  flashDebugEl.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.78);color:#0f0;font:11px monospace;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;';
+  document.body.appendChild(flashDebugEl);
+}
+
+function updateFlashDebug(m, decision) {
+  if (!FLASH_DEBUG) return;
+  ensureFlashDebug();
+  if (!flashDebugEl) return;
+  flashDebugEl.textContent =
+    `ambientA=${m.meanA.toFixed(1)} (< ${FLASH_AMBIENT_MAX})\n` +
+    `meanDelta=${m.meanD.toFixed(1)} (>= ${FLASH_MIN_MEAN_DELTA})\n` +
+    `center=${m.centerD.toFixed(1)} edge=${m.edgeD.toFixed(1)}\n` +
+    `gradient=${m.gradient.toFixed(1)} (>= ${FLASH_MIN_GRADIENT})\n` +
+    `maxDelta=${m.maxD.toFixed(0)} spike=${m.spikeRatio.toFixed(1)} (< ${FLASH_SPIKE_RATIO})\n` +
+    `=> ${decision.reason} ${decision.live ? 'LIVE' : 'REJECT'}`;
 }
 
 function setRecognitionIdle(text) {
@@ -1184,7 +1474,7 @@ async function markAttendance(type) {
     return;
   }
   if (!isLivenessValid()) {
-    toast('Моргните перед отметкой, чтобы подтвердить присутствие', 'danger');
+    toast('Подождите — проверяем, что лицо живое', 'danger');
     return;
   }
 
@@ -1221,7 +1511,7 @@ async function markAttendance(type) {
     date: now.toLocaleDateString('ru-RU'),
     ts: now.toISOString(),
     isLate,
-    verification: liveness.method || 'blink',
+    verification: FLASH_LIVENESS_ENABLED ? 'flash' : (liveness.method || 'blink'),
   };
 
   const saved = await Store.post('addLog', { log });
