@@ -124,7 +124,7 @@
     position: relative;
     z-index: 5;
     display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
+    grid-template-columns: 1fr 2fr 1fr auto;
     align-items: center;
     gap: 24px;
     padding: 18px 28px;
@@ -134,6 +134,27 @@
     backdrop-filter: blur(28px) saturate(140%);
     -webkit-backdrop-filter: blur(28px) saturate(140%);
     box-shadow: var(--shadow);
+  }
+
+  .camera-reload-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid var(--glass-dark-border);
+    color: var(--ink);
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+  .camera-reload-btn:active { transform: translateY(1px); }
+  .camera-reload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .camera-reload-btn i { width: 20px; height: 20px; }
+  .camera-reload-btn.spinning i { animation: camera-reload-spin 0.8s linear infinite; }
+  @keyframes camera-reload-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   .brand {
@@ -376,6 +397,7 @@
     .app { padding: 12px; gap: 12px; }
     .topbar { grid-template-columns: 1fr; gap: 8px; padding: 14px 18px; text-align: center; }
     .brand, .clock { text-align: center; }
+    .camera-reload-btn { margin: 0 auto; }
     .greeting-sub { display: none; }
     .clock-time { font-size: 24px; }
     .rec-card { grid-template-columns: 60px 1fr; padding: 14px 16px; gap: 12px; }
@@ -414,6 +436,9 @@
       <div class="clock-time" id="clock">--:--</div>
       <div class="clock-date" id="date-label"></div>
     </div>
+    <button class="camera-reload-btn" id="btn-reload-camera" onclick="restartCamera()" title="Перезагрузить камеру">
+      <i data-lucide="refresh-cw"></i>
+    </button>
   </header>
 
   <div class="stage">
@@ -868,6 +893,20 @@ async function startCamera() {
     setVideoStatus('Нет доступа к камере');
     document.getElementById('camera-empty').style.display = 'grid';
     toast('Не удалось открыть камеру. Проверьте разрешения браузера.', 'danger');
+  }
+}
+
+async function restartCamera() {
+  const btn = document.getElementById('btn-reload-camera');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  currentDetected = null;
+  resetLiveness();
+  setRecognitionIdle();
+  try {
+    await startCamera();
+    toast('Камера перезагружена', 'ok');
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
   }
 }
 
