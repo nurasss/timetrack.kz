@@ -558,11 +558,12 @@ const FLASH_ANALYZE_SIZE = 64;       // downscaled analysis resolution (square)
 const FLASH_MIN_FACE_PX = 90;        // min face-box side to attempt a check
 // Decision thresholds — these WILL need on-device calibration via ?debug=1.
 const FLASH_AMBIENT_MAX = 232;       // frame-A green mean above this = oversaturated
-const FLASH_MIN_MEAN_DELTA = 6;      // min avg green increase to count as reflection
-const FLASH_MIN_GRADIENT = 4;        // (center − edge) green delta = the 3D shape cue
-const FLASH_SPECULAR_MAX = 90;       // per-pixel delta above this counts as a "hot" pixel
-const FLASH_SPIKE_MIN = 55;          // a localized bright spot must reach at least this delta
-const FLASH_SPIKE_RATIO = 6;         // maxDelta / meanDelta above this = concentrated glare
+// Greenness (G/(R+G+B)×255) thresholds — auto-exposure-robust. Provisional;
+// calibrate from ?debug=1 readings of a live face vs a photo.
+const FLASH_MIN_GREEN_RISE = 2.5;    // min avg greenness rise = flash actually registered
+const FLASH_MIN_GREEN_GRADIENT = 1.5; // (center − edge) greenness rise = the 3D shape cue
+const FLASH_GREEN_SPIKE_MIN = 20;    // a localized greenness spike must reach this
+const FLASH_GREEN_SPIKE_RATIO = 6;   // gMax / gMean above this = concentrated glare (phone)
 let flashGuard = { empId: null, confirmed: false, confirmedAt: 0, running: false, lastCheckAt: 0, lastReason: '' };
 let flashCanvas = null;
 let flashCtx = null;
@@ -932,6 +933,7 @@ async function startCamera() {
     document.getElementById('camera-empty').style.display = 'none';
     setFaceGuideVisible(FLASH_LIVENESS_ENABLED);
     requestWakeLock();
+    probeCameraCaps();
     setVideoStatus('Камера активна');
     noteVisualActivity();
     startMotionWatch();
@@ -948,6 +950,30 @@ async function startCamera() {
 function setFaceGuideVisible(visible) {
   const guide = document.getElementById('face-guide');
   if (guide) guide.hidden = !visible;
+}
+
+// Diagnostic only (?debug=1): shows whether the camera lets the browser lock
+// exposure / white balance — the backup plan if greenness alone isn't enough.
+function probeCameraCaps() {
+  if (!FLASH_DEBUG || !kioskStream) return;
+  try {
+    const track = kioskStream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    const lines = [
+      'exposureMode: ' + (caps.exposureMode ? caps.exposureMode.join('/') : 'n/a'),
+      'whiteBalance: ' + (caps.whiteBalanceMode ? caps.whiteBalanceMode.join('/') : 'n/a'),
+      'expComp: ' + (caps.exposureCompensation ? 'yes' : 'n/a'),
+      'brightness: ' + (caps.brightness ? 'yes' : 'n/a'),
+    ];
+    let el = document.getElementById('cam-caps');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cam-caps';
+      el.style.cssText = 'position:fixed;top:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.8);color:#6cf;font:10px monospace;padding:6px 8px;border-radius:6px;white-space:pre;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    el.textContent = 'CAM CAPS\n' + lines.join('\n');
+  } catch (_) { /* ignore */ }
 }
 
 // Keep the screen awake at full brightness so the flash always has enough
@@ -1306,50 +1332,66 @@ function flashEyeBoxes(landmarks, rx, ry, rw, rh) {
   return boxes;
 }
 
+// "Greenness" = G / (R+G+B), scaled ×255. This ratio is invariant to the
+// camera's auto-exposure gain (which scales all channels together), so it
+// survives the auto-exposure that cancels the raw brightness delta. A green
+// flash raises greenness; a 3D face raises it more at the nose/forehead
+// (closer to the screen) than at the edges.
+function greenness(data, i) {
+  const r = data[i], g = data[i + 1], b = data[i + 2];
+  const sum = r + g + b;
+  return sum > 0 ? (g / sum) * 255 : 0;
+}
+
 function analyzeFlashDelta(a, b, eyeBoxes) {
   const S = FLASH_ANALYZE_SIZE;
   const cx = (S - 1) / 2;
   const cy = (S - 1) / 2;
   const maxR = Math.hypot(cx, cy);
-  let sumA = 0, nA = 0, sumD = 0, n = 0;
-  let cSum = 0, cN = 0, eSum = 0, eN = 0, maxD = -Infinity, hotN = 0;
+  // abs = raw green channel (for ambient/reference); g = greenness ratio.
+  let sumGreenA = 0, nA = 0, sumAbsD = 0, n = 0, maxAbsD = -Infinity;
+  let sumGd = 0, gMaxD = -Infinity;
+  let cSum = 0, cN = 0, eSum = 0, eN = 0;
   const inEye = (x, y) => eyeBoxes.some((eb) => x >= eb.x0 && x <= eb.x1 && y >= eb.y0 && y <= eb.y1);
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
       if (inEye(x, y)) continue;
-      const i = (y * S + x) * 4 + 1; // green channel
-      const ga = a[i];
-      const d = b[i] - ga;
-      sumA += ga; nA++;
-      sumD += d; n++;
-      if (d > maxD) maxD = d;
-      if (d > FLASH_SPECULAR_MAX) hotN++;
+      const i = (y * S + x) * 4;
+      const greenA = a[i + 1];
+      const absD = b[i + 1] - greenA;
+      const gd = greenness(b, i) - greenness(a, i);
+      sumGreenA += greenA; nA++;
+      sumAbsD += absD; n++;
+      if (absD > maxAbsD) maxAbsD = absD;
+      sumGd += gd;
+      if (gd > gMaxD) gMaxD = gd;
       const r = Math.hypot(x - cx, y - cy) / maxR;
-      if (r < 0.45) { cSum += d; cN++; }
-      else if (r > 0.7) { eSum += d; eN++; }
+      if (r < 0.45) { cSum += gd; cN++; }
+      else if (r > 0.7) { eSum += gd; eN++; }
     }
   }
-  const centerD = cN ? cSum / cN : 0;
-  const edgeD = eN ? eSum / eN : 0;
-  const meanD = n ? sumD / n : 0;
-  const safeMaxD = maxD === -Infinity ? 0 : maxD;
+  const gCenter = cN ? cSum / cN : 0;
+  const gEdge = eN ? eSum / eN : 0;
+  const gMean = n ? sumGd / n : 0;
+  const safeGMax = gMaxD === -Infinity ? 0 : gMaxD;
   return {
-    meanA: nA ? sumA / nA : 0,
-    meanD,
-    centerD,
-    edgeD,
-    gradient: centerD - edgeD,
-    maxD: safeMaxD,
-    hotFraction: n ? hotN / n : 0,
-    spikeRatio: safeMaxD / Math.max(1, meanD),
+    meanA: nA ? sumGreenA / nA : 0,
+    meanD: n ? sumAbsD / n : 0,
+    maxD: maxAbsD === -Infinity ? 0 : maxAbsD,
+    gMean,
+    gCenter,
+    gEdge,
+    gGradient: gCenter - gEdge,
+    gMax: safeGMax,
+    gSpikeRatio: safeGMax / Math.max(0.5, gMean),
   };
 }
 
 function decideFlash(m) {
   if (m.meanA >= FLASH_AMBIENT_MAX) return { live: false, reason: 'ambient', message: 'Слишком яркий свет — отойдите от окна' };
-  if (m.meanD < FLASH_MIN_MEAN_DELTA) return { live: false, reason: 'no-reflection', message: 'Поднесите лицо ближе к экрану' };
-  if (m.maxD >= FLASH_SPIKE_MIN && m.spikeRatio >= FLASH_SPIKE_RATIO) return { live: false, reason: 'specular', message: 'Уберите телефон/экран от камеры' };
-  if (m.gradient < FLASH_MIN_GRADIENT) return { live: false, reason: 'flat', message: 'Похоже на фото — покажите живое лицо' };
+  if (m.gMean < FLASH_MIN_GREEN_RISE) return { live: false, reason: 'no-reflection', message: 'Поднесите лицо ближе к экрану' };
+  if (m.gMax >= FLASH_GREEN_SPIKE_MIN && m.gSpikeRatio >= FLASH_GREEN_SPIKE_RATIO) return { live: false, reason: 'specular', message: 'Уберите телефон/экран от камеры' };
+  if (m.gGradient < FLASH_MIN_GREEN_GRADIENT) return { live: false, reason: 'flat', message: 'Похоже на фото — покажите живое лицо' };
   return { live: true, reason: 'live', message: 'Живое лицо подтверждено' };
 }
 
@@ -1418,11 +1460,11 @@ function updateFlashDebug(m, decision) {
   ensureFlashDebug();
   if (!flashDebugEl) return;
   flashDebugEl.textContent =
-    `ambientA=${m.meanA.toFixed(1)} (< ${FLASH_AMBIENT_MAX})\n` +
-    `meanDelta=${m.meanD.toFixed(1)} (>= ${FLASH_MIN_MEAN_DELTA})\n` +
-    `center=${m.centerD.toFixed(1)} edge=${m.edgeD.toFixed(1)}\n` +
-    `gradient=${m.gradient.toFixed(1)} (>= ${FLASH_MIN_GRADIENT})\n` +
-    `maxDelta=${m.maxD.toFixed(0)} spike=${m.spikeRatio.toFixed(1)} (< ${FLASH_SPIKE_RATIO})\n` +
+    `ambientA=${m.meanA.toFixed(1)} absDelta=${m.meanD.toFixed(1)}\n` +
+    `greenRise=${m.gMean.toFixed(2)} (>= ${FLASH_MIN_GREEN_RISE})\n` +
+    `gCenter=${m.gCenter.toFixed(2)} gEdge=${m.gEdge.toFixed(2)}\n` +
+    `gGradient=${m.gGradient.toFixed(2)} (>= ${FLASH_MIN_GREEN_GRADIENT})\n` +
+    `gMax=${m.gMax.toFixed(1)} gSpike=${m.gSpikeRatio.toFixed(1)} (< ${FLASH_GREEN_SPIKE_RATIO})\n` +
     `=> ${decision.reason} ${decision.live ? 'LIVE' : 'REJECT'}`;
 }
 
