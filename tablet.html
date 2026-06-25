@@ -600,6 +600,8 @@ if (!SLUG) {
 const API = `api.php?c=${encodeURIComponent(SLUG)}&action=`;
 const MODEL_URL = 'models';
 const STORE_KEY = `timetrack_state_${SLUG}`;
+const QUEUE_KEY = `timetrack_queue_${SLUG}`;
+const QUEUE_MAX = 1000;
 const DEFAULT_STATE = {
   employees: [],
   logs: [],
@@ -694,6 +696,9 @@ const Store = {
       applyState(data.state);
       syncMode = 'server';
       saveLocal();
+      renderAll();
+      await flushQueue();
+      return;
     } catch (error) {
       const cached = localStorage.getItem(STORE_KEY);
       applyState(cached ? JSON.parse(cached) : DEFAULT_STATE);
@@ -727,6 +732,7 @@ const Store = {
       syncMode = 'server';
       saveLocal();
       renderAll();
+      if (queueSize() > 0) await flushQueue();
       return true;
     } catch (error) {
       if (error.appError) {
@@ -739,12 +745,90 @@ const Store = {
         toast(error.message || 'Не удалось сохранить отметку', 'danger');
         return false;
       }
+      // Network unreachable: record locally AND persist to the outbox so the
+      // mark is re-sent to the server once connectivity returns.
+      if (action === 'addLog' && body.log) enqueueLog(body.log);
       syncMode = 'local';
       localAction();
       return true;
     }
   },
 };
+
+// --- Offline outbox: queued check-ins awaiting delivery to the server -------
+function loadQueue() {
+  try {
+    const raw = localStorage.getItem(QUEUE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveQueue(queue) {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-QUEUE_MAX)));
+  } catch {}
+}
+
+function queueSize() {
+  return loadQueue().length;
+}
+
+function enqueueLog(log) {
+  const queue = loadQueue();
+  // Guard against double-queueing the same mark (e.g. retry of one tap).
+  if (queue.some((item) => item.id === log.id)) return;
+  queue.push(log);
+  saveQueue(queue);
+  renderBadges();
+}
+
+let flushing = false;
+async function flushQueue() {
+  if (flushing) return;
+  if (location.protocol === 'file:') return;
+  let queue = loadQueue();
+  if (queue.length === 0) return;
+  flushing = true;
+  try {
+    // Replay oldest-first so attendance order is preserved on the server.
+    while (queue.length > 0) {
+      const log = queue[0];
+      let res;
+      try {
+        res = await fetch(API + 'addLog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'addLog', log }),
+        });
+      } catch {
+        // Still offline — keep the remaining queue for the next attempt.
+        break;
+      }
+      const data = await res.json().catch(() => null);
+      if ((res.ok && data?.ok) || res.status === 409) {
+        // Delivered, or the server already has an equivalent mark (409 dup):
+        // either way it is safe to drop from the outbox.
+        if (data?.state) {
+          applyState(data.state);
+          syncMode = 'server';
+          saveLocal();
+        }
+        queue.shift();
+        saveQueue(queue);
+      } else {
+        // Server reachable but rejected for another reason — stop and retry
+        // later rather than spin on a poison entry.
+        break;
+      }
+    }
+    renderAll();
+  } finally {
+    flushing = false;
+  }
+}
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -869,7 +953,12 @@ function renderAll() {
 function renderBadges() {
   const employeesWithFace = state.employees.filter((emp) => Array.isArray(emp.descriptor)).length;
   const syncBadge = document.getElementById('sync-badge');
-  if (syncBadge) syncBadge.querySelector('span').textContent = syncMode === 'server' ? 'Сервер' : 'Локально';
+  if (syncBadge) {
+    const pending = queueSize();
+    let label = syncMode === 'server' ? 'Сервер' : 'Локально';
+    if (pending > 0) label += ` · ${pending} в очереди`;
+    syncBadge.querySelector('span').textContent = label;
+  }
 
   const model = state.settings.recognitionModel === 'ssd' ? 'Точная' : 'Быстрая';
   const modelBadge = document.getElementById('model-badge');
@@ -1774,6 +1863,7 @@ window.addEventListener('load', async () => {
   await Store.load();
   await loadCompanyInfo();
   setInterval(() => Store.load(), 20000);
+  window.addEventListener('online', () => { flushQueue(); });
   if (window.lucide) window.lucide.createIcons();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
