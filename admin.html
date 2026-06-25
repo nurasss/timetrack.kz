@@ -732,12 +732,37 @@
     <div class="modal-head">
       <h2>Вход в админку</h2>
     </div>
-    <div class="modal-body">
+    <div class="modal-body" id="admin-lock-login">
       <div class="field">
         <label for="admin-pin">PIN</label>
         <input class="input" type="password" id="admin-pin" inputmode="numeric" autocomplete="current-password" onkeydown="if(event.key==='Enter') unlockAdmin()">
       </div>
       <button class="btn primary" onclick="unlockAdmin()"><i data-lucide="lock-keyhole"></i>Войти</button>
+      <button class="btn ghost" type="button" onclick="showForgotPin()" style="margin-top:8px; width:100%">Забыли PIN?</button>
+    </div>
+    <div class="modal-body" id="admin-lock-forgot" style="display:none">
+      <div class="field">
+        <label for="forgot-email">Email компании</label>
+        <input class="input" type="email" id="forgot-email" placeholder="you@company.kz" onkeydown="if(event.key==='Enter') requestPinReset()">
+        <div class="hint">Если email совпадает с указанным при регистрации, на него придёт ссылка для сброса PIN.</div>
+      </div>
+      <button class="btn primary" onclick="requestPinReset()"><i data-lucide="mail"></i>Отправить ссылку</button>
+      <button class="btn ghost" type="button" onclick="showLogin()" style="margin-top:8px; width:100%">Назад</button>
+    </div>
+    <div class="modal-body" id="admin-lock-reset" style="display:none">
+      <div class="field">
+        <label for="reset-new-pin">Новый PIN</label>
+        <input class="input" type="password" id="reset-new-pin" inputmode="numeric" placeholder="Минимум 4 символа" minlength="4" onkeydown="if(event.key==='Enter') submitPinReset()">
+      </div>
+      <button class="btn primary" onclick="submitPinReset()"><i data-lucide="key-round"></i>Установить новый PIN</button>
+    </div>
+    <div class="modal-body" id="admin-lock-unverified" style="display:none">
+      <p>Email компании ещё не подтверждён. Мы отправили ссылку для подтверждения на почту при регистрации — перейдите по ней, чтобы активировать компанию.</p>
+      <div class="field">
+        <label for="unverified-email">Email, указанный при регистрации</label>
+        <input class="input" type="email" id="unverified-email" placeholder="you@company.kz">
+      </div>
+      <button class="btn primary" onclick="resendCompanyConfirmation()"><i data-lucide="mail"></i>Отправить письмо повторно</button>
     </div>
   </div>
 </div>
@@ -796,15 +821,19 @@ let capturedDescriptor = null;
 let capturedPhoto = null;
 let editingEmployeeId = null;
 let adminPin = sessionStorage.getItem(ADMIN_PIN_KEY) || '';
+let lastLoadErrorCode = '';
 
 const Store = {
   async load() {
     try {
       if (location.protocol === 'file:') throw new Error('local file');
       const res = await fetch(API + 'state', { cache: 'no-store' });
-      if (!res.ok) throw new Error('api unavailable');
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'api error');
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        lastLoadErrorCode = data?.code || '';
+        throw new Error(data?.error || 'api error');
+      }
+      lastLoadErrorCode = '';
       applyState(data.state);
       syncMode = 'server';
       saveLocal();
@@ -976,6 +1005,104 @@ async function verifyAdminAccess() {
     document.getElementById('admin-lock').classList.remove('open');
   } catch {
     lockAdmin();
+  }
+}
+
+function showForgotPin() {
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = '';
+}
+
+function showLogin() {
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = 'none';
+  document.getElementById('admin-lock-login').style.display = '';
+}
+
+async function requestPinReset() {
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) {
+    toast('Введите email', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(API + 'requestPinReset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Если email верный, на него отправлена ссылка', 'ok');
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  }
+}
+
+let pendingResetToken = '';
+
+function checkResetTokenInUrl() {
+  const token = new URLSearchParams(location.search).get('reset');
+  if (!token) return;
+  pendingResetToken = token;
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = '';
+  document.getElementById('admin-lock').classList.add('open');
+}
+
+async function submitPinReset() {
+  const newPin = document.getElementById('reset-new-pin').value.trim();
+  if (newPin.length < 4) {
+    toast('PIN должен быть не менее 4 символов', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(API + 'resetPin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetToken: pendingResetToken, newPin }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      toast(data?.error || 'Не удалось сбросить PIN', 'danger');
+      return;
+    }
+    const url = new URL(location.href);
+    url.searchParams.delete('reset');
+    history.replaceState({}, '', url);
+    document.getElementById('reset-new-pin').value = '';
+    document.getElementById('admin-lock-reset').style.display = 'none';
+    document.getElementById('admin-lock-login').style.display = '';
+    toast('PIN обновлён, войдите с новым PIN', 'ok');
+  } catch {
+    toast('Не удалось сбросить PIN', 'danger');
+  }
+}
+
+function showEmailNotVerified() {
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = 'none';
+  document.getElementById('admin-lock-unverified').style.display = '';
+  document.getElementById('admin-lock').classList.add('open');
+}
+
+async function resendCompanyConfirmation() {
+  const email = document.getElementById('unverified-email').value.trim();
+  if (!email) {
+    toast('Введите email', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(API + 'resendConfirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Письмо отправлено повторно', 'ok');
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
   }
 }
 
@@ -1717,7 +1844,13 @@ window.addEventListener('load', async () => {
   initFilters();
   await Store.load();
   await loadCompanyInfo();
-  await verifyAdminAccess();
+  if (lastLoadErrorCode === 'EMAIL_NOT_VERIFIED') {
+    showEmailNotVerified();
+  } else if (new URLSearchParams(location.search).get('reset')) {
+    checkResetTokenInUrl();
+  } else {
+    await verifyAdminAccess();
+  }
   setInterval(() => Store.load(), 30000);
   if (window.lucide) window.lucide.createIcons();
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {

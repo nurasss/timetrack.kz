@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Создать компанию — Timetrack</title>
+<script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --page: #0f1312;
+    --surface: #171c1a;
+    --surface-2: #202821;
+    --ink: #ecf4ef;
+    --muted: #9dacaa;
+    --line: #303b37;
+    --brand: #27bc95;
+    --brand-2: #1d9a7b;
+    --ok: #51d99c;
+    --danger: #ff7b74;
+    --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+  }
+
+  button, input, select { font: inherit; }
+
+  .topbar {
+    height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 750;
+    font-size: 20px;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+
+  .main-content {
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 48px 24px 60px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+  }
+
+  .panel h2 {
+    margin: 0 0 18px;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .field .hint {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .consent {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+
+  .consent input {
+    margin-top: 2px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    accent-color: var(--brand);
+  }
+
+  .consent a {
+    color: inherit;
+    text-decoration: underline;
+  }
+
+  .input {
+    min-height: 42px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 0 12px;
+    outline: none;
+    font-size: 15px;
+    width: 100%;
+  }
+
+  .input:focus { border-color: var(--brand); }
+
+  .btn {
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 20px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--surface);
+    width: 100%;
+    text-decoration: none;
+  }
+
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.primary:hover { background: var(--brand-2); }
+  .btn.ghost { background: transparent; border-color: var(--line); margin-top: 10px; }
+  .btn.ghost:hover { border-color: var(--brand); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .switch-link {
+    text-align: center;
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .switch-link a { color: var(--brand); text-decoration: none; font-weight: 700; }
+  .switch-link a:hover { text-decoration: underline; }
+
+  .success-box {
+    display: none;
+    text-align: center;
+    padding: 10px 0;
+  }
+
+  .success-box.visible { display: block; }
+
+  .success-box h3 {
+    margin: 0 0 8px;
+    color: var(--ok);
+    font-size: 18px;
+  }
+
+  .success-box p { color: var(--muted); margin: 0 0 16px; font-size: 14px; }
+
+  .success-links {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .success-links a {
+    min-height: 40px;
+    padding: 0 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
+  }
+
+  .success-links a:hover { border-color: var(--brand); }
+  .success-links a.primary { background: var(--brand); color: #fff; border-color: var(--brand); }
+
+  .toast-wrap {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    display: grid;
+    gap: 8px;
+    z-index: 50;
+  }
+
+  .toast {
+    min-width: min(360px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .toast.ok { background: var(--ok); color: #fff; }
+  .toast.danger { background: var(--danger); color: #fff; }
+
+  @media (max-width: 700px) {
+    .success-links { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <div class="brand-mark"><i data-lucide="check"></i></div>
+    <span>Timetrack</span>
+  </a>
+  <a class="btn outline small" href="login.html" style="width:auto; min-height:38px; padding:0 16px; font-size:14px; background:transparent; border:1px solid var(--line);">Войти</a>
+</header>
+
+<div class="main-content">
+  <div class="panel">
+    <h2>Подключить компанию</h2>
+
+    <form id="register-form" onsubmit="registerCompany(event)">
+      <div class="field">
+        <label for="reg-name">Название компании</label>
+        <input class="input" id="reg-name" placeholder="Например: ТОО Рога и Копыта" required>
+      </div>
+      <div class="field">
+        <label for="reg-slug">Идентификатор (латиница)</label>
+        <input class="input" id="reg-slug" placeholder="roga-i-kopyta" pattern="[a-z0-9][a-z0-9\-]{1,30}[a-z0-9]" required>
+        <div class="hint">3-32 символа: строчные латинские буквы, цифры, дефис. Будет в ссылке на вашу систему.</div>
+      </div>
+      <div class="field">
+        <label for="reg-pin">PIN для админки</label>
+        <input class="input" id="reg-pin" type="password" inputmode="numeric" placeholder="Минимум 4 символа" minlength="4" required>
+      </div>
+      <div class="field">
+        <label for="reg-email">Email</label>
+        <input class="input" id="reg-email" type="email" placeholder="you@company.kz" required>
+        <div class="hint">На него придёт ссылка подтверждения и можно будет восстановить PIN, если забудете.</div>
+      </div>
+      <label class="consent">
+        <input type="checkbox" id="reg-accept-policy" required>
+        <span>Я ознакомлен(а) и согласен(на) с <a href="privacy.html" target="_blank" rel="noopener">Политикой конфиденциальности</a>, включая обработку биометрических данных сотрудников</span>
+      </label>
+      <label class="consent">
+        <input type="checkbox" id="reg-accept-offer" required>
+        <span>Я принимаю условия <a href="offer.html" target="_blank" rel="noopener">Публичной оферты</a></span>
+      </label>
+      <button class="btn primary" type="submit" id="reg-btn">
+        <i data-lucide="plus-circle"></i>Создать
+      </button>
+    </form>
+
+    <div class="success-box" id="success-box">
+      <h3>Проверьте почту</h3>
+      <p id="success-name"></p>
+      <p class="hint">Мы отправили письмо со ссылкой подтверждения на <strong id="success-email"></strong>. Перейдите по ней, чтобы активировать компанию — без этого вход в админку и планшет не заработают.</p>
+      <button class="btn ghost" type="button" id="resend-btn" onclick="resendConfirmation()">Отправить письмо повторно</button>
+    </div>
+
+    <div class="success-box" id="confirm-box" style="display:none">
+      <h3 id="confirm-title">Подтверждаем email…</h3>
+      <p id="confirm-message"></p>
+      <div class="success-links" id="confirm-links" style="display:none">
+        <a id="confirm-admin" href="#"><i data-lucide="settings"></i>Админка</a>
+        <a id="confirm-tablet" href="#" class="primary"><i data-lucide="tablet"></i>Планшет</a>
+      </div>
+    </div>
+
+    <div class="switch-link" id="switch-link">
+      Уже есть аккаунт? <a href="login.html">Войти</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+function toast(message, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const node = document.createElement('div');
+  node.className = 'toast ' + type;
+  node.textContent = message;
+  wrap.appendChild(node);
+  setTimeout(() => node.remove(), 4000);
+}
+
+const slugInput = document.getElementById('reg-slug');
+document.getElementById('reg-name').addEventListener('input', (e) => {
+  if (slugInput.dataset.manual) return;
+  const name = e.target.value.trim();
+  const slug = name
+    .toLowerCase()
+    .replace(/[а-яё]/g, (c) => ({
+      'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i',
+      'й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t',
+      'у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y',
+      'ь':'','э':'e','ю':'yu','я':'ya',
+    }[c] || ''))
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 32);
+  slugInput.value = slug;
+});
+
+slugInput.addEventListener('input', () => { slugInput.dataset.manual = '1'; });
+
+let pendingConfirmSlug = '';
+let pendingConfirmEmail = '';
+
+async function resendConfirmation() {
+  if (!pendingConfirmSlug || !pendingConfirmEmail) return;
+  const btn = document.getElementById('resend-btn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`api.php?c=${encodeURIComponent(pendingConfirmSlug)}&action=resendConfirmation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: pendingConfirmEmail }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Письмо отправлено повторно', 'ok');
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function confirmEmailFromUrl() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('confirm') !== '1') return;
+  const slug = (params.get('c') || '').trim();
+  const token = (params.get('token') || '').trim();
+
+  document.getElementById('register-form').style.display = 'none';
+  document.getElementById('success-box').style.display = 'none';
+  document.getElementById('switch-link').style.display = 'none';
+  const box = document.getElementById('confirm-box');
+  box.style.display = '';
+  box.classList.add('visible');
+
+  if (!slug || !token) {
+    document.getElementById('confirm-title').textContent = 'Ссылка некорректна';
+    document.getElementById('confirm-message').textContent = 'Проверьте, что вы скопировали ссылку из письма полностью.';
+    return;
+  }
+
+  try {
+    const res = await fetch(`api.php?c=${encodeURIComponent(slug)}&action=confirmEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      document.getElementById('confirm-title').textContent = 'Не удалось подтвердить email';
+      document.getElementById('confirm-message').textContent = data?.error || 'Ссылка недействительна или устарела.';
+      return;
+    }
+    document.getElementById('confirm-title').textContent = 'Email подтверждён!';
+    document.getElementById('confirm-message').textContent = 'Компания активирована, можно входить.';
+    document.getElementById('confirm-admin').href = `admin.html?c=${encodeURIComponent(slug)}`;
+    document.getElementById('confirm-tablet').href = `tablet.html?c=${encodeURIComponent(slug)}`;
+    document.getElementById('confirm-links').style.display = '';
+    if (window.lucide) window.lucide.createIcons();
+  } catch {
+    document.getElementById('confirm-title').textContent = 'Не удалось связаться с сервером';
+    document.getElementById('confirm-message').textContent = 'Попробуйте обновить страницу.';
+  }
+}
+
+async function registerCompany(e) {
+  e.preventDefault();
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true;
+
+  const name = document.getElementById('reg-name').value.trim();
+  const slug = document.getElementById('reg-slug').value.trim().toLowerCase();
+  const pin = document.getElementById('reg-pin').value;
+  const email = document.getElementById('reg-email').value.trim();
+  const acceptedPolicy = document.getElementById('reg-accept-policy').checked;
+  const acceptedOffer = document.getElementById('reg-accept-offer').checked;
+
+  if (!acceptedPolicy || !acceptedOffer) {
+    toast('Подтвердите согласие с офертой и политикой конфиденциальности', 'danger');
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const res = await fetch('api.php?action=register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, name, pin, email, acceptedPolicy, acceptedOffer }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      toast(data.error || 'Ошибка регистрации', 'danger');
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('register-form').style.display = 'none';
+    document.getElementById('switch-link').style.display = 'none';
+    const box = document.getElementById('success-box');
+    box.classList.add('visible');
+    document.getElementById('success-name').textContent = `${name} (${slug})`;
+    document.getElementById('success-email').textContent = email;
+    pendingConfirmSlug = slug;
+    pendingConfirmEmail = email;
+    if (window.lucide) window.lucide.createIcons();
+
+    toast('Компания создана, проверьте почту', 'ok');
+  } catch (error) {
+    toast('Не удалось связаться с сервером', 'danger');
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('load', () => {
+  confirmEmailFromUrl();
+  if (window.lucide) window.lucide.createIcons();
+});
+</script>
+</body>
+</html>

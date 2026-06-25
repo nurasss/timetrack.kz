@@ -1,12 +1,36 @@
 const http = require('http');
+const tls = require('tls');
 const fs = require('fs');
 const path = require('path');
+
+// Minimal .env loader (no dotenv dependency in this project): KEY=value
+// lines, blank/`#` lines ignored, doesn't override already-set env vars.
+function loadEnvFile(file) {
+  if (!fs.existsSync(file)) return;
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq === -1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const value = trimmed.slice(eq + 1).trim();
+    if (!(key in process.env)) process.env[key] = value;
+  }
+}
+loadEnvFile(path.join(__dirname, '.env'));
 
 const PORT = Number(process.env.PORT || 8787);
 const DATA_DIR = path.join(__dirname, 'data');
 const COMPANIES_FILE = path.join(DATA_DIR, 'companies.json');
 const DUPLICATE_WINDOW_MS = 120000;
 const ADMIN_ACTIONS = new Set(['saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs']);
+const MAX_PIN_ATTEMPTS = 6;
+const PIN_LOCKOUT_MS = 900000;
+const BACKUP_KEEP = 20;
+const RESET_TOKEN_TTL_MS = 1800000;
+const RESET_REQUEST_COOLDOWN_MS = 120000;
+const EMAIL_VERIFY_TTL_MS = 86400000;
+const ALLOWED_ORIGINS = new Set(['https://timetrack.kz', 'https://www.timetrack.kz', 'http://localhost:8787', 'http://127.0.0.1:8787']);
 
 const DEFAULT_STATE = {
   employees: [],
@@ -47,24 +71,69 @@ function writeCompanies(list) {
 
 function companyDir(slug) { return path.join(DATA_DIR, slug); }
 function storeFile(slug) { return path.join(companyDir(slug), 'store.json'); }
+function employeesFile(slug) { return path.join(companyDir(slug), 'employees.json'); }
+function settingsFile(slug) { return path.join(companyDir(slug), 'settings.json'); }
+function logsFile(slug) { return path.join(companyDir(slug), 'logs.json'); }
 
-function readState(slug) {
-  const file = storeFile(slug);
-  try {
-    const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return {
-      employees: Array.isArray(parsed.employees) ? parsed.employees : [],
-      logs: Array.isArray(parsed.logs) ? parsed.logs : [],
-      settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
-    };
-  } catch {
-    return clone(DEFAULT_STATE);
-  }
+function readJsonSafe(file) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch { return null; }
 }
 
-function writeState(slug, state) {
+function legacyReadState(slug) {
+  const parsed = readJsonSafe(storeFile(slug));
+  if (!parsed) return clone(DEFAULT_STATE);
+  return {
+    employees: Array.isArray(parsed.employees) ? parsed.employees : [],
+    logs: Array.isArray(parsed.logs) ? parsed.logs : [],
+    settings: { ...DEFAULT_STATE.settings, ...(parsed.settings || {}) },
+  };
+}
+
+function writeEmployees(slug, state) {
   ensureDir(companyDir(slug));
-  fs.writeFileSync(storeFile(slug), JSON.stringify(state, null, 2), 'utf8');
+  fs.writeFileSync(employeesFile(slug), JSON.stringify({ employees: state.employees }, null, 2), 'utf8');
+}
+
+function writeSettings(slug, state) {
+  ensureDir(companyDir(slug));
+  fs.writeFileSync(settingsFile(slug), JSON.stringify({ settings: state.settings }, null, 2), 'utf8');
+}
+
+function writeLogs(slug, state) {
+  ensureDir(companyDir(slug));
+  fs.writeFileSync(logsFile(slug), JSON.stringify({ logs: state.logs }, null, 2), 'utf8');
+}
+
+// Storage is split into three files per company so the high-frequency
+// addLog action (every kiosk tap) never has to rewrite employee photos/face
+// descriptors, and a settings change never has to rewrite the logs.
+function readState(slug) {
+  const employeesPath = employeesFile(slug);
+  const settingsPath = settingsFile(slug);
+  const logsPath = logsFile(slug);
+
+  if (fs.existsSync(employeesPath) || fs.existsSync(settingsPath) || fs.existsSync(logsPath)) {
+    const employeesRaw = readJsonSafe(employeesPath);
+    const settingsRaw = readJsonSafe(settingsPath);
+    const logsRaw = readJsonSafe(logsPath);
+    return {
+      employees: Array.isArray(employeesRaw?.employees) ? employeesRaw.employees : [],
+      settings: { ...DEFAULT_STATE.settings, ...(settingsRaw?.settings || {}) },
+      logs: Array.isArray(logsRaw?.logs) ? logsRaw.logs : [],
+    };
+  }
+
+  // One-time migration from the legacy combined store.json, if present.
+  const state = legacyReadState(slug);
+  writeEmployees(slug, state);
+  writeSettings(slug, state);
+  writeLogs(slug, state);
+  const legacy = storeFile(slug);
+  if (fs.existsSync(legacy)) {
+    try { fs.renameSync(legacy, `${legacy}.migrated`); } catch {}
+  }
+  return state;
 }
 
 function publicState(state) {
@@ -77,9 +146,170 @@ function json(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
-    'Access-Control-Allow-Origin': '*',
   });
   res.end(JSON.stringify(payload));
+}
+
+function applyCors(req, res) {
+  const origin = req.headers.origin || '';
+  if (ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
+}
+
+function securityFile(slug) { return path.join(companyDir(slug), 'security.json'); }
+
+function defaultSecurity() {
+  return {
+    failedAttempts: 0, lockUntil: null,
+    resetToken: null, resetExpires: null, lastResetRequestAt: null,
+    verifyToken: null, verifyExpires: null, lastVerifyRequestAt: null,
+  };
+}
+
+// Companies created before this feature shipped have no `emailVerified` key
+// at all — treat that as already-verified (grandfathered in), so deploying
+// this doesn't lock out existing live companies. Only an explicit `false`
+// (set by a fresh registration) blocks access.
+function companyIsVerified(company) {
+  if (!company || !('emailVerified' in company)) return true;
+  return company.emailVerified === true;
+}
+
+function readSecurity(slug) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(securityFile(slug), 'utf8'));
+    return { ...defaultSecurity(), ...parsed };
+  } catch {
+    return defaultSecurity();
+  }
+}
+
+function writeSecurity(slug, security) {
+  fs.writeFileSync(securityFile(slug), JSON.stringify(security, null, 2), 'utf8');
+}
+
+function pinLockRemainingMs(security) {
+  if (!security.lockUntil) return 0;
+  return Math.max(0, Date.parse(security.lockUntil) - Date.now());
+}
+
+// Brute-force guard mirrors api.php: failures while locked don't reset the
+// lock early, so the attacker can't use timing to learn anything either.
+function requireAdminPin(body, state, slug) {
+  const security = readSecurity(slug);
+  const remaining = pinLockRemainingMs(security);
+  if (remaining > 0) {
+    return { ok: false, status: 429, error: `Слишком много попыток входа. Попробуйте через ${Math.ceil(remaining / 60000)} мин.` };
+  }
+  if (!isAdminAuthorized(body, state)) {
+    security.failedAttempts = (security.failedAttempts || 0) + 1;
+    if (security.failedAttempts >= MAX_PIN_ATTEMPTS) {
+      security.lockUntil = new Date(Date.now() + PIN_LOCKOUT_MS).toISOString();
+      security.failedAttempts = 0;
+    }
+    writeSecurity(slug, security);
+    return { ok: false, status: 403, error: 'Неверный PIN админки' };
+  }
+  // A successful normal login also invalidates any pending reset-PIN token.
+  writeSecurity(slug, defaultSecurity());
+  return { ok: true };
+}
+
+// Minimal SMTP client over a raw TLS socket (no nodemailer/deps in this
+// project). Handles AUTH LOGIN over implicit TLS (port 465) only — all the
+// configured provider needs.
+function smtpConfigured() {
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_USER && process.env.SMTP_PASS);
+}
+
+function sendEmail(to, subject, bodyText) {
+  return new Promise((resolve) => {
+    if (!smtpConfigured()) {
+      console.error(`SMTP not configured (.env missing/incomplete); skipping email to ${to}`);
+      resolve(false);
+      return;
+    }
+
+    const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
+    const headers = `From: Timetrack <${process.env.SMTP_USER}>\r\n`
+      + `To: <${to}>\r\n`
+      + `Subject: ${encodedSubject}\r\n`
+      + 'MIME-Version: 1.0\r\n'
+      + 'Content-Type: text/plain; charset=UTF-8\r\n'
+      + 'Content-Transfer-Encoding: base64\r\n\r\n';
+    const body = headers + Buffer.from(bodyText, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+
+    // Each entry: wait for `expect` reply code, then `send` the next line.
+    // Index 0 has send=null — it just waits for the server's 220 greeting.
+    const sequence = [
+      { send: null, expect: '220' },
+      { send: 'EHLO timetrack.kz', expect: '250' },
+      { send: 'AUTH LOGIN', expect: '334' },
+      { send: Buffer.from(process.env.SMTP_USER, 'utf8').toString('base64'), expect: '334' },
+      { send: Buffer.from(process.env.SMTP_PASS, 'utf8').toString('base64'), expect: '235' },
+      { send: `MAIL FROM:<${process.env.SMTP_USER}>`, expect: '250' },
+      { send: `RCPT TO:<${to}>`, expect: '250' },
+      { send: 'DATA', expect: '354' },
+      { send: `${body}\r\n.`, expect: '250' },
+    ];
+
+    const socket = tls.connect({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT), timeout: 10000 });
+    let buffer = '';
+    let finished = false;
+    let idx = 0;
+
+    const finish = (ok) => {
+      if (finished) return;
+      finished = true;
+      try { socket.end(); } catch {}
+      resolve(ok);
+    };
+
+    socket.on('error', () => finish(false));
+    socket.on('timeout', () => finish(false));
+
+    socket.on('data', (chunk) => {
+      if (finished) return; // e.g. the server's "221 bye" reply to our QUIT
+      buffer += chunk.toString('utf8');
+      const lines = buffer.split('\r\n').filter(Boolean);
+      const last = lines[lines.length - 1] || '';
+      if (!/^\d{3} /.test(last)) return; // multi-line reply not finished yet
+      const code = last.slice(0, 3);
+      buffer = '';
+
+      if (code !== sequence[idx].expect) { finish(false); return; }
+      idx++;
+      if (idx >= sequence.length) {
+        try { socket.write('QUIT\r\n'); } catch {}
+        finish(true);
+        return;
+      }
+      socket.write(`${sequence[idx].send}\r\n`);
+    });
+  });
+}
+
+function baseUrl(req) {
+  const host = req.headers.host || 'timetrack.kz';
+  const proto = req.headers['x-forwarded-proto'] || 'http';
+  return `${proto}://${host}`;
+}
+
+function backupStore(slug) {
+  const backupDir = path.join(companyDir(slug), 'backups');
+  ensureDir(backupDir);
+  const src = employeesFile(slug);
+  if (fs.existsSync(src)) {
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    fs.copyFileSync(src, path.join(backupDir, `employees-${stamp}.json`));
+  }
+  const files = fs.readdirSync(backupDir).filter((f) => f.startsWith('employees-')).sort();
+  const excess = files.length - BACKUP_KEEP;
+  for (let i = 0; i < excess; i++) {
+    fs.unlinkSync(path.join(backupDir, files[i]));
+  }
 }
 
 function text(v, max = 120) {
@@ -189,7 +419,6 @@ async function handleAPI(req, res) {
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     });
@@ -203,10 +432,18 @@ async function handleAPI(req, res) {
     const newSlug = (body.slug || '').toLowerCase().trim();
     const name = text(body.name, 120);
     const pin = String(body.pin || '').trim();
+    const email = String(body.email || '').toLowerCase().trim();
+    const acceptedPolicy = Boolean(body.acceptedPolicy);
+    const acceptedOffer = Boolean(body.acceptedOffer);
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
     if (!validSlug(newSlug)) return json(res, 422, { ok: false, error: 'Некорректный идентификатор' });
     if (!name) return json(res, 422, { ok: false, error: 'Укажите название компании' });
     if (pin.length < 4) return json(res, 422, { ok: false, error: 'PIN должен быть не менее 4 символов' });
+    if (!emailValid) return json(res, 422, { ok: false, error: 'Укажите корректный email — на него можно будет восстановить PIN' });
+    if (!acceptedPolicy || !acceptedOffer) {
+      return json(res, 422, { ok: false, error: 'Необходимо подтвердить согласие с офертой и политикой конфиденциальности' });
+    }
 
     if (fs.existsSync(companyDir(newSlug))) {
       return json(res, 409, { ok: false, error: 'Этот идентификатор уже занят' });
@@ -215,13 +452,42 @@ async function handleAPI(req, res) {
     const initialState = clone(DEFAULT_STATE);
     initialState.settings.adminPin = pin.slice(0, 32);
     ensureDir(companyDir(newSlug));
-    writeState(newSlug, initialState);
+    writeEmployees(newSlug, initialState);
+    writeSettings(newSlug, initialState);
+    writeLogs(newSlug, initialState);
 
     const companies = readCompanies();
-    companies.push({ slug: newSlug, name, createdAt: new Date().toISOString() });
+    companies.push({
+      slug: newSlug,
+      name,
+      email,
+      emailVerified: false,
+      createdAt: new Date().toISOString(),
+      consent: { policy: true, offer: true, acceptedAt: new Date().toISOString() },
+    });
     writeCompanies(companies);
 
-    return json(res, 200, { ok: true, company: { slug: newSlug, name } });
+    const verifyToken = require('crypto').randomBytes(16).toString('hex');
+    writeSecurity(newSlug, {
+      ...defaultSecurity(),
+      verifyToken,
+      verifyExpires: new Date(Date.now() + EMAIL_VERIFY_TTL_MS).toISOString(),
+    });
+
+    const base = baseUrl(req);
+    sendEmail(
+      email,
+      'Timetrack — подтвердите email',
+      `Спасибо за регистрацию в Timetrack!\n\n`
+      + `Компания: ${name}\n\n`
+      + `Подтвердите email, чтобы активировать компанию (ссылка действует 24 часа):\n`
+      + `${base}/register.html?confirm=1&c=${newSlug}&token=${verifyToken}\n\n`
+      + `После подтверждения станут доступны:\n`
+      + `Админ-панель: ${base}/admin.html?c=${newSlug}\n`
+      + `Планшет-киоск: ${base}/tablet.html?c=${newSlug}`,
+    ).catch(() => {});
+
+    return json(res, 200, { ok: true, company: { slug: newSlug, name, emailVerified: false } });
   }
 
   if (action === 'companies') {
@@ -244,6 +510,68 @@ async function handleAPI(req, res) {
     return json(res, 200, { ok: true, company: { slug, name: found?.name || slug } });
   }
 
+  if (action === 'confirmEmail') {
+    if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'Метод не поддерживается' });
+    const body = await readBody(req);
+    const token = String(body.token || '').trim();
+    const security = readSecurity(slug);
+
+    const validToken = Boolean(token) && Boolean(security.verifyToken)
+      && token.length === security.verifyToken.length
+      && require('crypto').timingSafeEqual(Buffer.from(token), Buffer.from(security.verifyToken));
+    const notExpired = Boolean(security.verifyExpires) && Date.parse(security.verifyExpires) > Date.now();
+
+    if (!validToken || !notExpired) {
+      return json(res, 403, { ok: false, error: 'Ссылка подтверждения недействительна или устарела' });
+    }
+
+    const companies = readCompanies();
+    const company = companies.find((c) => c.slug === slug);
+    if (company) company.emailVerified = true;
+    writeCompanies(companies);
+
+    security.verifyToken = null;
+    security.verifyExpires = null;
+    writeSecurity(slug, security);
+    return json(res, 200, { ok: true });
+  }
+
+  if (action === 'resendConfirmation') {
+    if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'Метод не поддерживается' });
+    const companies = readCompanies();
+    const company = companies.find((c) => c.slug === slug);
+
+    if (company && !companyIsVerified(company)) {
+      const security = readSecurity(slug);
+      const cooldownOk = !security.lastVerifyRequestAt
+        || (Date.now() - Date.parse(security.lastVerifyRequestAt)) >= RESET_REQUEST_COOLDOWN_MS;
+      if (cooldownOk) {
+        const token = require('crypto').randomBytes(16).toString('hex');
+        security.verifyToken = token;
+        security.verifyExpires = new Date(Date.now() + EMAIL_VERIFY_TTL_MS).toISOString();
+        security.lastVerifyRequestAt = new Date().toISOString();
+        writeSecurity(slug, security);
+
+        const base = baseUrl(req);
+        sendEmail(
+          String(company.email || ''),
+          'Timetrack — подтвердите email',
+          `Подтвердите email, чтобы активировать компанию «${company.name}» (ссылка действует 24 часа):\n`
+          + `${base}/register.html?confirm=1&c=${slug}&token=${token}`,
+        ).catch(() => {});
+      }
+    }
+    return json(res, 200, { ok: true, message: 'Если компания существует и email ещё не подтверждён, письмо отправлено повторно' });
+  }
+
+  {
+    const companies = readCompanies();
+    const company = companies.find((c) => c.slug === slug);
+    if (!companyIsVerified(company)) {
+      return json(res, 403, { ok: false, error: 'Подтвердите email — мы отправили ссылку при регистрации', code: 'EMAIL_NOT_VERIFIED' });
+    }
+  }
+
   let state = readState(slug);
 
   if (req.method === 'GET' && action === 'state') {
@@ -257,12 +585,66 @@ async function handleAPI(req, res) {
   const body = await readBody(req);
 
   if (action === 'checkAdminPin') {
-    if (!isAdminAuthorized(body, state)) return json(res, 403, { ok: false, error: 'Неверный PIN админки' });
+    const auth = requireAdminPin(body, state, slug);
+    if (!auth.ok) return json(res, auth.status, { ok: false, error: auth.error });
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
-  if (ADMIN_ACTIONS.has(action) && !isAdminAuthorized(body, state)) {
-    return json(res, 403, { ok: false, error: 'Неверный PIN админки' });
+  if (action === 'requestPinReset') {
+    const companies = readCompanies();
+    const company = companies.find((c) => c.slug === slug);
+    const requestedEmail = String(body.email || '').toLowerCase().trim();
+    const security = readSecurity(slug);
+    const cooldownOk = !security.lastResetRequestAt
+      || (Date.now() - Date.parse(security.lastResetRequestAt)) >= RESET_REQUEST_COOLDOWN_MS;
+
+    if (company && requestedEmail && String(company.email || '').toLowerCase() === requestedEmail && cooldownOk) {
+      const token = require('crypto').randomBytes(16).toString('hex');
+      security.resetToken = token;
+      security.resetExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
+      security.lastResetRequestAt = new Date().toISOString();
+      writeSecurity(slug, security);
+
+      const base = baseUrl(req);
+      sendEmail(
+        requestedEmail,
+        'Timetrack — сброс PIN администратора',
+        `Запрошен сброс PIN для компании «${company.name}».\n\n`
+        + `Перейдите по ссылке, чтобы задать новый PIN (действует 30 минут):\n`
+        + `${base}/admin.html?c=${slug}&reset=${token}\n\n`
+        + `Если вы не запрашивали сброс — просто игнорируйте это письмо.`,
+      ).catch(() => {});
+    }
+    // Deliberately generic regardless of match — avoids leaking which email a company uses.
+    return json(res, 200, { ok: true, message: 'Если email указан верно, на него отправлена ссылка для сброса PIN' });
+  }
+
+  if (action === 'resetPin') {
+    const token = String(body.resetToken || '').trim();
+    const newPin = String(body.newPin || '').trim();
+    const security = readSecurity(slug);
+
+    const validToken = Boolean(token) && Boolean(security.resetToken)
+      && token.length === security.resetToken.length
+      && require('crypto').timingSafeEqual(Buffer.from(token), Buffer.from(security.resetToken));
+    const notExpired = Boolean(security.resetExpires) && Date.parse(security.resetExpires) > Date.now();
+
+    if (!validToken || !notExpired) {
+      return json(res, 403, { ok: false, error: 'Ссылка для сброса недействительна или устарела' });
+    }
+    if (newPin.length < 4) {
+      return json(res, 422, { ok: false, error: 'PIN должен быть не менее 4 символов' });
+    }
+
+    state.settings.adminPin = newPin.slice(0, 32);
+    writeSettings(slug, state);
+    writeSecurity(slug, defaultSecurity());
+    return json(res, 200, { ok: true });
+  }
+
+  if (ADMIN_ACTIONS.has(action)) {
+    const auth = requireAdminPin(body, state, slug);
+    if (!auth.ok) return json(res, auth.status, { ok: false, error: auth.error });
   }
 
   if (action === 'saveEmployee') {
@@ -271,14 +653,15 @@ async function handleAPI(req, res) {
     const index = state.employees.findIndex((item) => item.id === next.id);
     if (index >= 0) state.employees[index] = next;
     else state.employees.push(next);
-    writeState(slug, state);
+    writeEmployees(slug, state);
+    backupStore(slug);
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
   if (action === 'deleteEmployee') {
     const target = id(body.id, 'e');
     state.employees = state.employees.filter((item) => item.id !== target);
-    writeState(slug, state);
+    writeEmployees(slug, state);
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
@@ -289,19 +672,19 @@ async function handleAPI(req, res) {
     }
     state.logs.unshift(nextLog);
     state.logs = state.logs.slice(0, 10000);
-    writeState(slug, state);
+    writeLogs(slug, state);
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
   if (action === 'updateSettings') {
     state.settings = settings(body.settings || {}, state.settings);
-    writeState(slug, state);
+    writeSettings(slug, state);
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
   if (action === 'clearLogs') {
     state.logs = [];
-    writeState(slug, state);
+    writeLogs(slug, state);
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
@@ -310,6 +693,7 @@ async function handleAPI(req, res) {
 
 ensureDir(DATA_DIR);
 http.createServer((req, res) => {
+  applyCors(req, res);
   handleAPI(req, res).catch((error) => {
     json(res, 500, { ok: false, error: error.message || 'Ошибка сервера' });
   });

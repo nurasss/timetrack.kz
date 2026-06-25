@@ -18,3 +18,7 @@ screenshots/
 
 # Original logo source (use timetrack-logo.svg)
 timetrack logo copy.svg
+
+# SMTP/email secrets — never commit, see smtp-config.example.php / .env.example
+smtp-config.php
+.env

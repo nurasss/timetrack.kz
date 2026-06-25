@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Вход — Timetrack</title>
+<script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --page: #0f1312;
+    --surface: #171c1a;
+    --surface-2: #202821;
+    --ink: #ecf4ef;
+    --muted: #9dacaa;
+    --line: #303b37;
+    --brand: #27bc95;
+    --brand-2: #1d9a7b;
+    --ok: #51d99c;
+    --danger: #ff7b74;
+    --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+  }
+
+  button, input, select { font: inherit; }
+
+  .topbar {
+    height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 750;
+    font-size: 20px;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--brand);
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+
+  .nav-link {
+    width: auto;
+    min-height: 38px;
+    padding: 0 16px;
+    font-size: 14px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    color: var(--ink);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  .nav-link:hover { border-color: var(--brand); }
+
+  .main-content {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 64px 24px 60px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 24px;
+  }
+
+  .panel h2 {
+    margin: 0 0 18px;
+    font-size: 20px;
+    text-align: center;
+  }
+
+  .field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+
+  .field label {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .field .hint {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .input {
+    min-height: 42px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface-2);
+    color: var(--ink);
+    padding: 0 12px;
+    outline: none;
+    font-size: 15px;
+    width: 100%;
+  }
+
+  .input:focus { border-color: var(--brand); }
+
+  .btn {
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 20px;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--surface);
+    width: 100%;
+    text-decoration: none;
+  }
+
+  .btn.primary { background: var(--brand); color: #fff; }
+  .btn.primary:hover { background: var(--brand-2); }
+  .btn.ghost { background: transparent; border: 1px solid var(--line); margin-top: 10px; }
+  .btn.ghost:hover { border-color: var(--brand); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .text-link {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    text-decoration: underline;
+  }
+  .text-link:hover { color: var(--ink); }
+
+  .switch-link {
+    text-align: center;
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .switch-link a { color: var(--brand); text-decoration: none; font-weight: 700; }
+  .switch-link a:hover { text-decoration: underline; }
+
+  .panel-message {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 0 16px;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    display: grid;
+    gap: 8px;
+    z-index: 50;
+  }
+
+  .toast {
+    min-width: min(360px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .toast.ok { background: var(--ok); color: #fff; }
+  .toast.danger { background: var(--danger); color: #fff; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html">
+    <div class="brand-mark"><i data-lucide="check"></i></div>
+    <span>Timetrack</span>
+  </a>
+  <a class="nav-link" href="register.html">Создать компанию</a>
+</header>
+
+<div class="main-content">
+  <div class="panel" id="login-panel">
+    <h2>Вход в Timetrack</h2>
+    <form id="login-form" onsubmit="submitLogin(event)">
+      <div class="field">
+        <label for="login-company">Компания</label>
+        <input class="input" id="login-company" placeholder="slug или название компании" required autofocus>
+      </div>
+      <div class="field">
+        <label for="login-pin">PIN администратора</label>
+        <input class="input" id="login-pin" type="password" inputmode="numeric" required>
+      </div>
+      <button class="btn primary" type="submit" id="login-btn">
+        <i data-lucide="log-in"></i>Войти
+      </button>
+      <button class="text-link" type="button" onclick="showForgot()">Забыли PIN?</button>
+    </form>
+    <div class="switch-link">Нет аккаунта? <a href="register.html">Создать</a></div>
+  </div>
+
+  <div class="panel" id="forgot-panel" style="display:none">
+    <h2>Восстановление PIN</h2>
+    <p class="panel-message">Укажите компанию и email, указанный при регистрации — пришлём ссылку для сброса PIN.</p>
+    <div class="field">
+      <label for="forgot-company">Компания</label>
+      <input class="input" id="forgot-company" placeholder="slug или название компании">
+    </div>
+    <div class="field">
+      <label for="forgot-email">Email</label>
+      <input class="input" id="forgot-email" type="email" placeholder="you@company.kz">
+    </div>
+    <button class="btn primary" onclick="submitForgotPin()"><i data-lucide="mail"></i>Отправить ссылку</button>
+    <button class="btn ghost" type="button" onclick="showLogin()">Назад</button>
+  </div>
+
+  <div class="panel" id="unverified-panel" style="display:none">
+    <h2>Подтвердите email</h2>
+    <p class="panel-message" id="unverified-message">Email этой компании ещё не подтверждён. Мы отправили ссылку при регистрации — перейдите по ней, чтобы активировать компанию.</p>
+    <div class="field">
+      <label for="unverified-email">Email, указанный при регистрации</label>
+      <input class="input" id="unverified-email" type="email" placeholder="you@company.kz">
+    </div>
+    <button class="btn primary" onclick="submitResendConfirmation()"><i data-lucide="mail"></i>Отправить письмо повторно</button>
+    <button class="btn ghost" type="button" onclick="showLogin()">Назад</button>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+function toast(message, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const node = document.createElement('div');
+  node.className = 'toast ' + type;
+  node.textContent = message;
+  wrap.appendChild(node);
+  setTimeout(() => node.remove(), 4000);
+}
+
+function showLogin() {
+  document.getElementById('login-panel').style.display = '';
+  document.getElementById('forgot-panel').style.display = 'none';
+  document.getElementById('unverified-panel').style.display = 'none';
+}
+
+function showForgot() {
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('forgot-panel').style.display = '';
+  document.getElementById('unverified-panel').style.display = 'none';
+  document.getElementById('forgot-company').value = document.getElementById('login-company').value;
+}
+
+function showUnverified(slug) {
+  document.getElementById('login-panel').style.display = 'none';
+  document.getElementById('forgot-panel').style.display = 'none';
+  document.getElementById('unverified-panel').style.display = '';
+  pendingUnverifiedSlug = slug;
+}
+
+let pendingUnverifiedSlug = '';
+
+// The only public lookup we have is the company catalog (slug + name);
+// resolve whatever the user typed against either field, case-insensitively.
+async function resolveCompany(inputValue) {
+  const needle = inputValue.trim().toLowerCase();
+  if (!needle) return null;
+  const res = await fetch('api.php?action=companies', { cache: 'no-store' });
+  const data = await res.json().catch(() => null);
+  if (!data?.ok) return null;
+  return data.companies.find((c) => (
+    String(c.slug || '').toLowerCase() === needle || String(c.name || '').toLowerCase() === needle
+  )) || null;
+}
+
+async function submitLogin(e) {
+  e.preventDefault();
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+
+  const companyInput = document.getElementById('login-company').value;
+  const pin = document.getElementById('login-pin').value;
+
+  try {
+    const company = await resolveCompany(companyInput);
+    if (!company) {
+      toast('Компания не найдена', 'danger');
+      btn.disabled = false;
+      return;
+    }
+
+    const res = await fetch(`api.php?c=${encodeURIComponent(company.slug)}&action=checkAdminPin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPin: pin }),
+    });
+    const data = await res.json().catch(() => null);
+
+    if (data?.code === 'EMAIL_NOT_VERIFIED') {
+      showUnverified(company.slug);
+      btn.disabled = false;
+      return;
+    }
+    if (!res.ok || !data?.ok) {
+      toast(data?.error || 'Неверный PIN', 'danger');
+      btn.disabled = false;
+      return;
+    }
+
+    sessionStorage.setItem(`timetrack_admin_pin_${company.slug}`, pin);
+    window.location.href = `admin.html?c=${encodeURIComponent(company.slug)}`;
+  } catch {
+    toast('Не удалось связаться с сервером', 'danger');
+    btn.disabled = false;
+  }
+}
+
+async function submitForgotPin() {
+  const companyInput = document.getElementById('forgot-company').value;
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) {
+    toast('Введите email', 'danger');
+    return;
+  }
+  try {
+    const company = await resolveCompany(companyInput);
+    if (!company) {
+      toast('Компания не найдена', 'danger');
+      return;
+    }
+    const res = await fetch(`api.php?c=${encodeURIComponent(company.slug)}&action=requestPinReset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Если email верный, на него отправлена ссылка', 'ok');
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  }
+}
+
+async function submitResendConfirmation() {
+  const email = document.getElementById('unverified-email').value.trim();
+  if (!email || !pendingUnverifiedSlug) {
+    toast('Введите email', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(`api.php?c=${encodeURIComponent(pendingUnverifiedSlug)}&action=resendConfirmation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Письмо отправлено повторно', 'ok');
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  }
+}
+
+window.addEventListener('load', () => {
+  if (window.lucide) window.lucide.createIcons();
+});
+</script>
+</body>
+</html>
