@@ -23,14 +23,16 @@ loadEnvFile(path.join(__dirname, '.env'));
 const PORT = Number(process.env.PORT || 8787);
 const DATA_DIR = path.join(__dirname, 'data');
 const COMPANIES_FILE = path.join(DATA_DIR, 'companies.json');
+const LAST_LOGINS_FILE = path.join(DATA_DIR, 'last-logins.json');
 const DUPLICATE_WINDOW_MS = 120000;
-const ADMIN_ACTIONS = new Set(['saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs']);
+const ADMIN_ACTIONS = new Set(['saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs', 'requestTabletAccess']);
 const MAX_PIN_ATTEMPTS = 6;
 const PIN_LOCKOUT_MS = 900000;
 const BACKUP_KEEP = 20;
 const RESET_TOKEN_TTL_MS = 1800000;
 const RESET_REQUEST_COOLDOWN_MS = 120000;
 const EMAIL_VERIFY_TTL_MS = 86400000;
+const TABLET_ACCESS_TTL_MS = 600000;
 const ALLOWED_ORIGINS = new Set(['https://timetrack.kz', 'https://www.timetrack.kz', 'http://localhost:8787', 'http://127.0.0.1:8787']);
 
 const DEFAULT_STATE = {
@@ -166,6 +168,7 @@ function defaultSecurity() {
     failedAttempts: 0, lockUntil: null,
     resetToken: null, resetExpires: null, lastResetRequestAt: null,
     verifyToken: null, verifyExpires: null, lastVerifyRequestAt: null,
+    tabletToken: null, tabletExpires: null,
   };
 }
 
@@ -322,6 +325,38 @@ function baseUrl(req) {
   const host = req.headers.host || 'timetrack.kz';
   const proto = req.headers['x-forwarded-proto'] || 'http';
   return `${proto}://${host}`;
+}
+
+// Caddy's reverse_proxy sets X-Forwarded-For automatically, so this is the
+// real visitor IP even though this Node process sits behind it.
+function clientIp(req) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.socket.remoteAddress || '';
+}
+
+// Soft "remember this browser's last company" lookup, NOT authentication —
+// whoAmI only ever suggests a company name/slug so index.html can offer a
+// shortcut into login.html; the PIN is still required there either way.
+function readLastLogins() {
+  try { return JSON.parse(fs.readFileSync(LAST_LOGINS_FILE, 'utf8')); }
+  catch { return {}; }
+}
+
+function writeLastLogins(data) {
+  ensureDir(DATA_DIR);
+  fs.writeFileSync(LAST_LOGINS_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
+function recordLastLogin(ip, slug, name) {
+  if (!ip) return;
+  const data = readLastLogins();
+  data[ip] = { slug, name, lastLoginAt: new Date().toISOString() };
+  const keys = Object.keys(data);
+  if (keys.length > 5000) {
+    for (const key of keys.slice(0, keys.length - 2000)) delete data[key];
+  }
+  writeLastLogins(data);
 }
 
 function backupStore(slug) {
@@ -523,6 +558,13 @@ async function handleAPI(req, res) {
     return json(res, 200, { ok: true, companies: publicList });
   }
 
+  if (action === 'whoAmI') {
+    const lastLogins = readLastLogins();
+    const entry = lastLogins[clientIp(req)];
+    if (!entry) return json(res, 200, { ok: true, found: false });
+    return json(res, 200, { ok: true, found: true, slug: entry.slug || '', name: entry.name || '' });
+  }
+
   if (!validSlug(slug)) {
     return json(res, 400, { ok: false, error: 'Укажите компанию (?c=slug)' });
   }
@@ -614,6 +656,8 @@ async function handleAPI(req, res) {
   if (action === 'checkAdminPin') {
     const auth = requireAdminPin(body, state, slug);
     if (!auth.ok) return json(res, auth.status, { ok: false, error: auth.error });
+    const company = readCompanies().find((c) => c.slug === slug);
+    recordLastLogin(clientIp(req), slug, company?.name || slug);
     return json(res, 200, { ok: true, state: publicState(state) });
   }
 
@@ -672,6 +716,27 @@ async function handleAPI(req, res) {
   if (ADMIN_ACTIONS.has(action)) {
     const auth = requireAdminPin(body, state, slug);
     if (!auth.ok) return json(res, auth.status, { ok: false, error: auth.error });
+  }
+
+  if (action === 'requestTabletAccess') {
+    const security = readSecurity(slug);
+    security.tabletToken = require('crypto').randomBytes(16).toString('hex');
+    security.tabletExpires = new Date(Date.now() + TABLET_ACCESS_TTL_MS).toISOString();
+    writeSecurity(slug, security);
+    return json(res, 200, { ok: true, token: security.tabletToken, expiresInSeconds: TABLET_ACCESS_TTL_MS / 1000 });
+  }
+
+  if (action === 'verifyTabletAccess') {
+    const token = String(body.token || '').trim();
+    const security = readSecurity(slug);
+    const validToken = Boolean(token) && Boolean(security.tabletToken)
+      && token.length === security.tabletToken.length
+      && require('crypto').timingSafeEqual(Buffer.from(token), Buffer.from(security.tabletToken));
+    const notExpired = Boolean(security.tabletExpires) && Date.parse(security.tabletExpires) > Date.now();
+    if (!validToken || !notExpired) {
+      return json(res, 403, { ok: false, error: 'QR-код недействителен или устарел' });
+    }
+    return json(res, 200, { ok: true });
   }
 
   if (action === 'saveEmployee') {

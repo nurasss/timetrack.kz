@@ -21,6 +21,7 @@
   }
 
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
     min-height: 100vh;
@@ -28,6 +29,7 @@
     color: var(--ink);
     font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 15px;
+    overflow-x: hidden;
   }
 
   button, input, select { font: inherit; }
@@ -40,6 +42,9 @@
     align-items: center;
     justify-content: space-between;
     padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
   }
 
   .brand {
@@ -84,26 +89,74 @@
     background: var(--surface);
     text-decoration: none;
     white-space: nowrap;
+    transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
   }
 
-  .btn.primary { background: var(--brand); color: #fff; }
-  .btn.primary:hover { background: var(--brand-2); }
+  .btn.primary { background: var(--brand); color: #fff; box-shadow: 0 10px 28px rgba(39, 188, 149, 0.28); }
+  .btn.primary:hover { background: var(--brand-2); transform: translateY(-1px); }
   .btn.outline { background: transparent; border-color: var(--line); }
-  .btn.outline:hover { border-color: var(--brand); }
+  .btn.outline:hover { border-color: var(--brand); transform: translateY(-1px); }
   .btn.small { min-height: 38px; padding: 0 16px; font-size: 14px; }
 
-  .hero {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: 72px 24px 32px;
+  .welcome-back {
+    display: none;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
     text-align: center;
+    font-size: 14px;
+  }
+  .welcome-back.visible { display: block; }
+  .welcome-back a { color: var(--brand); font-weight: 700; text-decoration: none; }
+  .welcome-back a:hover { text-decoration: underline; }
+
+  .hero {
+    position: relative;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 76px 24px 40px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 40px;
+    align-items: center;
   }
 
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -160px;
+    left: 50%;
+    width: 760px;
+    height: 520px;
+    transform: translateX(-50%);
+    background: radial-gradient(closest-side, rgba(39, 188, 149, 0.22), transparent 70%);
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .hero-copy { text-align: left; }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
+  .eyebrow i { width: 14px; height: 14px; color: var(--brand); }
+
   .hero h1 {
-    font-size: 40px;
+    font-size: 44px;
     font-weight: 800;
     margin: 0 0 16px;
-    line-height: 1.2;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
   }
 
   .hero h1 span { color: var(--brand); }
@@ -113,52 +166,235 @@
     font-size: 17px;
     line-height: 1.6;
     margin: 0 0 28px;
+    max-width: 480px;
   }
 
   .hero-actions {
     display: flex;
-    justify-content: center;
     gap: 12px;
     flex-wrap: wrap;
   }
 
   .hero-actions .btn { width: auto; }
 
-  .features {
-    max-width: 860px;
-    margin: 56px auto 0;
-    padding: 0 24px 64px;
+  .hero-note {
+    margin-top: 18px;
+    color: var(--muted);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hero-note i { width: 14px; height: 14px; color: var(--brand); }
+
+  /* CSS-only mockup of the kiosk recognizing a face — no screenshots needed */
+  .hero-visual { display: flex; justify-content: center; }
+
+  .kiosk-frame {
+    width: 280px;
+    padding: 18px 18px 26px;
+    border-radius: 28px;
+    background: linear-gradient(165deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+
+  .kiosk-screen {
+    position: relative;
+    height: 320px;
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 38%, rgba(39, 188, 149, 0.18), #0c1110 70%);
+    border: 1px solid var(--line);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  .scan-ring {
+    position: relative;
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    border: 3px dashed rgba(39, 188, 149, 0.55);
+    display: grid;
+    place-items: center;
+    animation: scan-spin 6s linear infinite;
+  }
+  @keyframes scan-spin { to { transform: rotate(360deg); } }
+
+  .scan-face {
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    display: grid;
+    place-items: center;
+    color: var(--brand);
+    animation: scan-pulse 2.4s ease-in-out infinite;
+  }
+  @keyframes scan-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(39, 188, 149, 0.35); }
+    50% { box-shadow: 0 0 0 14px rgba(39, 188, 149, 0); }
+  }
+
+  .scan-face i { width: 40px; height: 40px; }
+
+  .kiosk-badge {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    right: 16px;
+    background: rgba(23, 28, 26, 0.85);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .kiosk-badge i { width: 14px; height: 14px; color: var(--brand); flex-shrink: 0; }
+
+  .kiosk-buttons { display: flex; gap: 10px; margin-top: 14px; }
+  .kiosk-buttons span {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .kiosk-buttons span:first-child { background: #3a7d5c; }
+  .kiosk-buttons span:last-child { background: #5b7da6; }
+
+  .section-label {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0 0 8px;
+  }
+
+  .section-title {
+    text-align: center;
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 44px;
+  }
+
+  .steps {
+    max-width: 980px;
+    margin: 88px auto 0;
+    padding: 0 24px;
+  }
+
+  .steps-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+    gap: 20px;
+  }
+
+  .step {
+    position: relative;
+    padding: 26px 20px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .step-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--brand);
+    font-weight: 800;
+    display: grid;
+    place-items: center;
+    margin-bottom: 14px;
+  }
+
+  .step h3 { margin: 0 0 6px; font-size: 16px; }
+  .step p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+  .features {
+    max-width: 980px;
+    margin: 88px auto 0;
+    padding: 0 24px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
   }
 
   .feature {
-    padding: 22px 20px;
+    padding: 26px 22px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius);
     text-align: center;
+    transition: border-color 0.2s ease, transform 0.2s ease;
   }
+  .feature:hover { border-color: var(--brand); transform: translateY(-3px); }
 
-  .feature i { color: var(--brand); margin-bottom: 10px; }
-  .feature h3 { margin: 0 0 6px; font-size: 15px; }
+  .feature-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 14px;
+    border-radius: 12px;
+    background: rgba(39, 188, 149, 0.12);
+    display: grid;
+    place-items: center;
+  }
+  .feature-icon i { width: 24px; height: 24px; color: var(--brand); }
+  .feature h3 { margin: 0 0 6px; font-size: 16px; }
   .feature p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
 
+  .cta-band {
+    max-width: 880px;
+    margin: 96px auto 0;
+    padding: 48px 40px;
+    background: linear-gradient(135deg, rgba(39, 188, 149, 0.16), var(--surface));
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    text-align: center;
+  }
+  .cta-band h2 { margin: 0 0 10px; font-size: 26px; font-weight: 800; }
+  .cta-band p { margin: 0 0 24px; color: var(--muted); font-size: 15px; }
+  .cta-band .hero-actions { justify-content: center; }
+
   .footer {
+    margin-top: 80px;
     border-top: 1px solid var(--line);
-    padding: 24px;
+    padding: 28px 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
     text-align: center;
     color: var(--muted);
     font-size: 13px;
   }
 
+  .footer-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--ink); }
+  .footer-brand .brand-mark { width: 24px; height: 24px; border-radius: 6px; }
+  .footer-brand .brand-mark i { width: 14px; height: 14px; }
   .footer a { color: var(--muted); text-decoration: underline; }
   .footer a:hover { color: var(--ink); }
 
-  @media (max-width: 700px) {
-    .hero h1 { font-size: 28px; }
-    .features { grid-template-columns: 1fr; }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; padding-top: 48px; }
+    .hero-copy { text-align: center; }
+    .hero p { margin-inline: auto; }
+    .hero-actions { justify-content: center; }
+    .hero-note { justify-content: center; }
+    .steps-grid, .features { grid-template-columns: 1fr; }
+    .hero h1 { font-size: 30px; }
+    .cta-band { padding: 36px 24px; }
   }
 </style>
 </head>
@@ -173,39 +409,109 @@
   </div>
 </header>
 
+<div class="welcome-back" id="welcome-back">
+  Здравствуйте, <strong id="welcome-back-name"></strong>! <a id="welcome-back-link" href="login.html">Войти в аккаунт →</a>
+</div>
+
 <section class="hero">
-  <h1>Учёт рабочего времени<br><span>по лицу сотрудника</span></h1>
-  <p>Планшет с камерой распознаёт сотрудников, фиксирует приход и уход, формирует табель. Без карточек, без отпечатков — только лицо.</p>
-  <div class="hero-actions">
-    <a class="btn primary" href="register.html"><i data-lucide="plus-circle"></i>Подключить компанию</a>
-    <a class="btn outline" href="login.html"><i data-lucide="log-in"></i>У меня уже есть аккаунт</a>
+  <div class="hero-copy">
+    <div class="eyebrow"><i data-lucide="sparkles"></i>Работает прямо в браузере, без приложений</div>
+    <h1>Учёт рабочего времени<br><span>по лицу сотрудника</span></h1>
+    <p>Планшет с камерой распознаёт сотрудников, фиксирует приход и уход, формирует табель. Без карточек, без отпечатков — только лицо.</p>
+    <div class="hero-actions">
+      <a class="btn primary" href="register.html"><i data-lucide="plus-circle"></i>Подключить компанию</a>
+      <a class="btn outline" href="login.html"><i data-lucide="log-in"></i>У меня уже есть аккаунт</a>
+    </div>
+    <div class="hero-note"><i data-lucide="shield-check"></i>Распознавание происходит локально в браузере планшета</div>
+  </div>
+  <div class="hero-visual">
+    <div class="kiosk-frame">
+      <div class="kiosk-screen">
+        <div class="scan-ring">
+          <div class="scan-face"><i data-lucide="scan-face"></i></div>
+        </div>
+        <div class="kiosk-badge"><i data-lucide="check-circle-2"></i>Отметка сохранена</div>
+      </div>
+      <div class="kiosk-buttons">
+        <span>Приход</span>
+        <span>Уход</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="steps">
+  <div class="section-label">Как это работает</div>
+  <h2 class="section-title">Три шага — и отметка готова</h2>
+  <div class="steps-grid">
+    <div class="step">
+      <div class="step-number">1</div>
+      <h3>Сотрудник подходит к планшету</h3>
+      <p>Камера в браузере находит лицо в кадре — не нужны карточки, бейджи или отпечатки.</p>
+    </div>
+    <div class="step">
+      <div class="step-number">2</div>
+      <h3>Проверка, что это живой человек</h3>
+      <p>Liveness-проверка (моргание или поворот головы) отсекает попытки пройти по фото с экрана.</p>
+    </div>
+    <div class="step">
+      <div class="step-number">3</div>
+      <h3>Отметка сохраняется автоматически</h3>
+      <p>Приход или уход фиксируется мгновенно и сразу попадает в табель в админке.</p>
+    </div>
   </div>
 </section>
 
 <section class="features">
   <div class="feature">
-    <i data-lucide="scan-face"></i>
+    <div class="feature-icon"><i data-lucide="scan-face"></i></div>
     <h3>Распознавание лица</h3>
     <p>Face ID прямо в браузере. Работает на любом устройстве с камерой.</p>
   </div>
   <div class="feature">
-    <i data-lucide="shield-check"></i>
+    <div class="feature-icon"><i data-lucide="shield-check"></i></div>
     <h3>Liveness-проверка</h3>
     <p>Моргание или поворот головы — фото с экрана не пройдёт.</p>
   </div>
   <div class="feature">
-    <i data-lucide="table-properties"></i>
+    <div class="feature-icon"><i data-lucide="table-properties"></i></div>
     <h3>Табель и экспорт</h3>
     <p>Готовый табель посещаемости. Выгрузка в XLSX и CSV.</p>
   </div>
 </section>
 
+<div class="cta-band">
+  <h2>Готовы попробовать?</h2>
+  <p>Регистрация компании занимает пару минут — вам понадобится только email и PIN для админки.</p>
+  <div class="hero-actions">
+    <a class="btn primary" href="register.html"><i data-lucide="plus-circle"></i>Подключить компанию</a>
+  </div>
+</div>
+
 <footer class="footer">
-  <a href="privacy.html">Политика конфиденциальности</a> · <a href="offer.html">Публичная оферта</a>
+  <div class="footer-brand">
+    <div class="brand-mark"><i data-lucide="check"></i></div>
+    <span>Timetrack</span>
+  </div>
+  <div><a href="privacy.html">Политика конфиденциальности</a> · <a href="offer.html">Публичная оферта</a></div>
 </footer>
 
 <script>
+// Soft "remember this browser's last company" lookup — purely a UX
+// shortcut into login.html, never an auto-login. The PIN is still required.
+async function showWelcomeBackIfKnown() {
+  try {
+    const res = await fetch('api.php?action=whoAmI', { cache: 'no-store' });
+    const data = await res.json().catch(() => null);
+    if (!data?.ok || !data.found) return;
+    document.getElementById('welcome-back-name').textContent = data.name;
+    document.getElementById('welcome-back-link').href = `login.html?company=${encodeURIComponent(data.slug)}`;
+    document.getElementById('welcome-back').classList.add('visible');
+  } catch {}
+}
+
 window.addEventListener('load', () => {
+  showWelcomeBackIfKnown();
   if (window.lucide) window.lucide.createIcons();
 });
 </script>

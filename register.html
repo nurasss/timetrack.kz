@@ -288,6 +288,11 @@
       <h3>Проверьте почту</h3>
       <p id="success-name"></p>
       <p class="hint">Мы отправили письмо со ссылкой подтверждения на <strong id="success-email"></strong>. Перейдите по ней, чтобы активировать компанию — без этого вход в админку и планшет не заработают.</p>
+      <div class="success-links">
+        <a id="success-admin" href="#"><i data-lucide="settings"></i>Админка</a>
+        <a id="success-tablet" href="#" class="primary"><i data-lucide="tablet"></i>Планшет</a>
+      </div>
+      <p class="hint" style="margin-top:10px">Ссылки уже ваши — сохраните их. Сработают сразу после подтверждения email.</p>
       <button class="btn ghost" type="button" id="resend-btn" onclick="resendConfirmation()">Отправить письмо повторно</button>
     </div>
 
@@ -440,6 +445,8 @@ async function registerCompany(e) {
     box.classList.add('visible');
     document.getElementById('success-name').textContent = `${name} (${slug})`;
     document.getElementById('success-email').textContent = email;
+    document.getElementById('success-admin').href = `admin.html?c=${encodeURIComponent(slug)}`;
+    document.getElementById('success-tablet').href = `tablet.html?c=${encodeURIComponent(slug)}`;
     pendingConfirmSlug = slug;
     pendingConfirmEmail = email;
     if (window.lucide) window.lucide.createIcons();

@@ -14,6 +14,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 <style>
   :root {
     color-scheme: dark;
@@ -496,7 +497,6 @@
   </nav>
   <div class="top-actions">
     <span class="badge" id="sync-badge"><i data-lucide="cloud"></i><span>Проверка связи</span></span>
-    <a class="btn ghost small" id="tablet-link" href="tablet.html" target="_blank" rel="noopener"><i data-lucide="tablet"></i>Планшет</a>
   </div>
 </header>
 
@@ -647,6 +647,12 @@
     </div>
 
     <div class="panel pad" style="margin-top:14px">
+      <h2 class="section-title">Вход в планшетную версию</h2>
+      <button class="btn primary" onclick="openTabletAccessModal()"><i data-lucide="qr-code"></i>Создать QR-код</button>
+      <div class="hint">QR-код действует 10 минут. Отсканируйте его камерой планшета (или откройте ссылку прямо на планшете), чтобы открыть киоск-режим на этом устройстве — повторный вход не понадобится, пока не очистят данные браузера.</div>
+    </div>
+
+    <div class="panel pad" style="margin-top:14px">
       <h2 class="section-title">Обслуживание данных</h2>
       <button class="btn danger" onclick="clearLogs()"><i data-lucide="trash-2"></i>Очистить отметки</button>
       <div class="hint">Сотрудники и их фото останутся, удалится только журнал приходов и уходов.</div>
@@ -767,6 +773,21 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="tablet-access-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>QR-код для планшета</h2>
+      <button class="btn ghost small" onclick="closeTabletAccessModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div id="tablet-qr-canvas-wrap" style="display:flex; justify-content:center; margin-bottom:12px"></div>
+      <div class="hint" id="tablet-access-countdown">Действует 10:00</div>
+      <div class="hint" style="word-break:break-all; margin-top:8px" id="tablet-access-url"></div>
+      <button class="btn ghost" style="margin-top:10px" onclick="regenerateTabletAccess()"><i data-lucide="refresh-cw"></i>Создать новый</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="delete-company-modal">
   <div class="modal">
     <div class="modal-head">
@@ -803,7 +824,7 @@ const API = `api.php?c=${encodeURIComponent(SLUG)}&action=`;
 const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
 const STORE_KEY = `timetrack_state_${SLUG}`;
 const ADMIN_PIN_KEY = `timetrack_admin_pin_${SLUG}`;
-const ADMIN_ACTIONS = new Set(['checkAdminPin', 'saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs', 'deleteCompany']);
+const ADMIN_ACTIONS = new Set(['checkAdminPin', 'saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs', 'deleteCompany', 'requestTabletAccess']);
 const DEFAULT_STATE = {
   employees: [],
   logs: [],
@@ -1643,6 +1664,86 @@ async function clearLogs() {
   toast('Отметки очищены', 'ok');
 }
 
+let tabletAccessCountdownTimer = null;
+
+// The QR library loads with `defer`, so it may not be ready the instant the
+// modal opens — poll briefly instead of failing on the first check.
+function waitForQRCodeLib(timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    if (window.QRCode) { resolve(window.QRCode); return; }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      if (window.QRCode) {
+        clearInterval(interval);
+        resolve(window.QRCode);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(interval);
+        resolve(null);
+      }
+    }, 100);
+  });
+}
+
+async function openTabletAccessModal() {
+  document.getElementById('tablet-access-modal').classList.add('open');
+  if (window.lucide) window.lucide.createIcons();
+  await regenerateTabletAccess();
+}
+
+function closeTabletAccessModal() {
+  document.getElementById('tablet-access-modal').classList.remove('open');
+  if (tabletAccessCountdownTimer) clearInterval(tabletAccessCountdownTimer);
+  tabletAccessCountdownTimer = null;
+}
+
+async function regenerateTabletAccess() {
+  const wrap = document.getElementById('tablet-qr-canvas-wrap');
+  const countdownEl = document.getElementById('tablet-access-countdown');
+  const urlEl = document.getElementById('tablet-access-url');
+  wrap.innerHTML = '';
+  countdownEl.textContent = 'Создаём…';
+  urlEl.textContent = '';
+
+  let data;
+  try {
+    data = await Store.post('requestTabletAccess', {});
+  } catch (error) {
+    toast(error.message || 'Не удалось создать QR-код', 'danger');
+    closeTabletAccessModal();
+    return;
+  }
+  if (!data?.token) {
+    toast('Не удалось создать QR-код', 'danger');
+    return;
+  }
+
+  const url = `${location.origin}${location.pathname.replace('admin.html', 'tablet.html')}?c=${encodeURIComponent(SLUG)}&token=${encodeURIComponent(data.token)}`;
+  urlEl.textContent = url;
+
+  const qrLib = await waitForQRCodeLib();
+  if (qrLib) {
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    qrLib.toCanvas(canvas, url, { width: 240, margin: 1 }, (err) => {
+      if (err) wrap.innerHTML = '<div class="hint">Не удалось отрисовать QR-код</div>';
+    });
+  } else {
+    wrap.innerHTML = '<div class="hint">Библиотека QR-кода не загрузилась — используйте ссылку ниже</div>';
+  }
+
+  if (tabletAccessCountdownTimer) clearInterval(tabletAccessCountdownTimer);
+  const expiresAt = Date.now() + (Number(data.expiresInSeconds) || 600) * 1000;
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+    const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const ss = String(remaining % 60).padStart(2, '0');
+    countdownEl.textContent = remaining > 0 ? `Действует ${mm}:${ss}` : 'Срок действия истёк — создайте новый';
+    if (remaining <= 0) clearInterval(tabletAccessCountdownTimer);
+  };
+  tick();
+  tabletAccessCountdownTimer = setInterval(tick, 1000);
+}
+
 function openDeleteCompanyModal() {
   document.getElementById('delete-company-modal').classList.add('open');
   document.getElementById('delete-company-slug-label').textContent = SLUG;
@@ -1840,7 +1941,6 @@ async function loadCompanyInfo() {
 }
 
 window.addEventListener('load', async () => {
-  document.getElementById('tablet-link').href = `tablet.html?c=${encodeURIComponent(SLUG)}`;
   initFilters();
   await Store.load();
   await loadCompanyInfo();

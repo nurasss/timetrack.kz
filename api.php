@@ -20,6 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 $baseDataDir = __DIR__ . DIRECTORY_SEPARATOR . 'data';
 $companiesFile = $baseDataDir . DIRECTORY_SEPARATOR . 'companies.json';
+$lastLoginsFile = $baseDataDir . DIRECTORY_SEPARATOR . 'last-logins.json';
 define('DUPLICATE_WINDOW_SECONDS', 120);
 define('MAX_PIN_ATTEMPTS', 6);
 define('PIN_LOCKOUT_SECONDS', 900);
@@ -27,6 +28,7 @@ define('BACKUP_KEEP', 20);
 define('RESET_TOKEN_TTL_SECONDS', 1800);
 define('RESET_REQUEST_COOLDOWN_SECONDS', 120);
 define('EMAIL_VERIFY_TTL_SECONDS', 86400);
+define('TABLET_ACCESS_TTL_SECONDS', 600);
 
 $smtpConfigFile = __DIR__ . DIRECTORY_SEPARATOR . 'smtp-config.php';
 if (is_file($smtpConfigFile)) {
@@ -338,6 +340,8 @@ function default_security(): array
         'verifyToken' => null,
         'verifyExpires' => null,
         'lastVerifyRequestAt' => null,
+        'tabletToken' => null,
+        'tabletExpires' => null,
     ];
 }
 
@@ -516,6 +520,49 @@ function base_url(): string
     return "$scheme://$host";
 }
 
+// Caddy's reverse_proxy sets X-Forwarded-For automatically, so this is the
+// real visitor IP even though PHP/Node sit behind it; REMOTE_ADDR alone
+// would just be Caddy's own container address.
+function client_ip(): string
+{
+    $forwarded = (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '');
+    if ($forwarded !== '') {
+        return trim(explode(',', $forwarded)[0]);
+    }
+    return (string)($_SERVER['REMOTE_ADDR'] ?? '');
+}
+
+// Soft "remember this browser's last company" lookup, NOT authentication —
+// whoAmI only ever suggests a company name/slug so index.html can offer a
+// shortcut into login.html; the PIN is still required there either way.
+function read_last_logins(string $file): array
+{
+    if (!is_file($file)) {
+        return [];
+    }
+    $decoded = json_decode(file_get_contents($file) ?: '', true);
+    return is_array($decoded) ? $decoded : [];
+}
+
+function write_last_logins(string $file, array $data): void
+{
+    file_put_contents($file, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+}
+
+function record_last_login(string $file, string $ip, string $slug, string $name): void
+{
+    if ($ip === '') {
+        return;
+    }
+    $data = read_last_logins($file);
+    $data[$ip] = ['slug' => $slug, 'name' => $name, 'lastLoginAt' => gmdate('c')];
+    // Keep the file from growing without bound on a busy shared IP pool.
+    if (count($data) > 5000) {
+        $data = array_slice($data, -2000, null, true);
+    }
+    write_last_logins($file, $data);
+}
+
 function recent_duplicate(array $logs, array $nextLog): bool
 {
     $nextTs = strtotime((string)($nextLog['ts'] ?? '')) ?: 0;
@@ -642,6 +689,15 @@ if ($action === 'companies') {
         'name' => $c['name'] ?? '',
     ], $companies);
     respond(['ok' => true, 'companies' => $publicList]);
+}
+
+if ($action === 'whoAmI') {
+    $lastLogins = read_last_logins($lastLoginsFile);
+    $entry = $lastLogins[client_ip()] ?? null;
+    if (!$entry) {
+        respond(['ok' => true, 'found' => false]);
+    }
+    respond(['ok' => true, 'found' => true, 'slug' => $entry['slug'] ?? '', 'name' => $entry['name'] ?? '']);
 }
 
 // === All other actions require a valid slug ===
@@ -774,6 +830,7 @@ try {
 
     if ($action === 'checkAdminPin') {
         require_admin_pin($input, $state, $securityFile);
+        record_last_login($lastLoginsFile, client_ip(), $slug, $companyForGate['name'] ?? $slug);
         respond(['ok' => true, 'state' => public_state($state)]);
     }
 
@@ -834,8 +891,27 @@ try {
         respond(['ok' => true]);
     }
 
-    if (in_array($action, ['saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs', 'deleteCompany'], true)) {
+    if (in_array($action, ['saveEmployee', 'deleteEmployee', 'updateSettings', 'clearLogs', 'deleteCompany', 'requestTabletAccess'], true)) {
         require_admin_pin($input, $state, $securityFile);
+    }
+
+    if ($action === 'requestTabletAccess') {
+        $security = read_security($securityFile);
+        $security['tabletToken'] = bin2hex(random_bytes(16));
+        $security['tabletExpires'] = gmdate('c', time() + TABLET_ACCESS_TTL_SECONDS);
+        write_security($securityFile, $security);
+        respond(['ok' => true, 'token' => $security['tabletToken'], 'expiresInSeconds' => TABLET_ACCESS_TTL_SECONDS]);
+    }
+
+    if ($action === 'verifyTabletAccess') {
+        $token = trim((string)($input['token'] ?? ''));
+        $security = read_security($securityFile);
+        $validToken = $token !== '' && !empty($security['tabletToken']) && hash_equals((string)$security['tabletToken'], $token);
+        $notExpired = !empty($security['tabletExpires']) && strtotime((string)$security['tabletExpires']) > time();
+        if (!$validToken || !$notExpired) {
+            respond(['ok' => false, 'error' => 'QR-код недействителен или устарел'], 403);
+        }
+        respond(['ok' => true]);
     }
 
     if ($action === 'deleteCompany') {

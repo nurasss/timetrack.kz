@@ -397,6 +397,11 @@ async function submitResendConfirmation() {
 }
 
 window.addEventListener('load', () => {
+  const company = new URLSearchParams(location.search).get('company');
+  if (company) {
+    document.getElementById('login-company').value = company;
+    document.getElementById('login-pin').focus();
+  }
   if (window.lucide) window.lucide.createIcons();
 });
 </script>
