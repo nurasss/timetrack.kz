@@ -1,5 +1,6 @@
 const http = require('http');
 const tls = require('tls');
+const net = require('net');
 const fs = require('fs');
 const path = require('path');
 
@@ -222,9 +223,14 @@ function requireAdminPin(body, state, slug) {
 // project). Handles AUTH LOGIN over implicit TLS (port 465) only — all the
 // configured provider needs.
 function smtpConfigured() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT && process.env.SMTP_USER && process.env.SMTP_PASS);
+  return Boolean(process.env.SMTP_HOST && process.env.SMTP_PORT);
 }
 
+// AUTH+TLS is only used when SMTP_USER/SMTP_PASS are set (external provider,
+// e.g. a real mailbox over implicit TLS on port 465). Without credentials,
+// this connects in the clear with no AUTH — meant for a local Postfix relay
+// on a trusted private network (e.g. the docker bridge) that authorizes by
+// source IP via mynetworks, not by login.
 function sendEmail(to, subject, bodyText) {
   return new Promise((resolve) => {
     if (!smtpConfigured()) {
@@ -233,8 +239,11 @@ function sendEmail(to, subject, bodyText) {
       return;
     }
 
+    const useAuth = Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+    const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || `no-reply@timetrack.kz`;
+
     const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
-    const headers = `From: Timetrack <${process.env.SMTP_USER}>\r\n`
+    const headers = `From: Timetrack <${fromAddress}>\r\n`
       + `To: <${to}>\r\n`
       + `Subject: ${encodedSubject}\r\n`
       + 'MIME-Version: 1.0\r\n'
@@ -247,16 +256,19 @@ function sendEmail(to, subject, bodyText) {
     const sequence = [
       { send: null, expect: '220' },
       { send: 'EHLO timetrack.kz', expect: '250' },
-      { send: 'AUTH LOGIN', expect: '334' },
-      { send: Buffer.from(process.env.SMTP_USER, 'utf8').toString('base64'), expect: '334' },
-      { send: Buffer.from(process.env.SMTP_PASS, 'utf8').toString('base64'), expect: '235' },
-      { send: `MAIL FROM:<${process.env.SMTP_USER}>`, expect: '250' },
+      ...(useAuth ? [
+        { send: 'AUTH LOGIN', expect: '334' },
+        { send: Buffer.from(process.env.SMTP_USER, 'utf8').toString('base64'), expect: '334' },
+        { send: Buffer.from(process.env.SMTP_PASS, 'utf8').toString('base64'), expect: '235' },
+      ] : []),
+      { send: `MAIL FROM:<${fromAddress}>`, expect: '250' },
       { send: `RCPT TO:<${to}>`, expect: '250' },
       { send: 'DATA', expect: '354' },
       { send: `${body}\r\n.`, expect: '250' },
     ];
 
-    const socket = tls.connect({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT), timeout: 10000 });
+    const connectOptions = { host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT), timeout: 10000 };
+    const socket = useAuth ? tls.connect(connectOptions) : net.connect(connectOptions);
     let buffer = '';
     let finished = false;
     let idx = 0;

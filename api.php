@@ -413,9 +413,14 @@ function backup_store(string $companyDir, string $employeesFile): void
 // implicit TLS (port 465), which is all the configured provider needs.
 function smtp_configured(): bool
 {
-    return defined('SMTP_HOST') && defined('SMTP_PORT') && defined('SMTP_USER') && defined('SMTP_PASS') && SMTP_PASS !== '';
+    return defined('SMTP_HOST') && defined('SMTP_PORT');
 }
 
+// AUTH+TLS is only used when SMTP_USER/SMTP_PASS are defined (external
+// provider, e.g. a real mailbox over implicit TLS on port 465). Without
+// credentials, this connects in the clear with no AUTH — meant for a local
+// Postfix relay on a trusted private network (e.g. the docker bridge) that
+// authorizes by source IP via mynetworks, not by login.
 function send_email(string $to, string $subject, string $bodyText): bool
 {
     if (!smtp_configured()) {
@@ -423,10 +428,14 @@ function send_email(string $to, string $subject, string $bodyText): bool
         return false;
     }
 
+    $useAuth = defined('SMTP_USER') && defined('SMTP_PASS') && SMTP_PASS !== '';
+    $fromAddress = defined('SMTP_FROM') ? SMTP_FROM : (defined('SMTP_USER') ? SMTP_USER : 'no-reply@timetrack.kz');
+
     $errno = 0;
     $errstr = '';
+    $scheme = $useAuth ? 'ssl://' : 'tcp://';
     $socket = @stream_socket_client(
-        'ssl://' . SMTP_HOST . ':' . SMTP_PORT,
+        $scheme . SMTP_HOST . ':' . SMTP_PORT,
         $errno,
         $errstr,
         10,
@@ -458,10 +467,10 @@ function send_email(string $to, string $subject, string $bodyText): bool
 
     $ok = $expect($socket, '220');
     if ($ok) { $send($socket, 'EHLO timetrack.kz'); $ok = $expect($socket, '250'); }
-    if ($ok) { $send($socket, 'AUTH LOGIN'); $ok = $expect($socket, '334'); }
-    if ($ok) { $send($socket, base64_encode(SMTP_USER)); $ok = $expect($socket, '334'); }
-    if ($ok) { $send($socket, base64_encode(SMTP_PASS)); $ok = $expect($socket, '235'); }
-    if ($ok) { $send($socket, 'MAIL FROM:<' . SMTP_USER . '>'); $ok = $expect($socket, '250'); }
+    if ($ok && $useAuth) { $send($socket, 'AUTH LOGIN'); $ok = $expect($socket, '334'); }
+    if ($ok && $useAuth) { $send($socket, base64_encode(SMTP_USER)); $ok = $expect($socket, '334'); }
+    if ($ok && $useAuth) { $send($socket, base64_encode(SMTP_PASS)); $ok = $expect($socket, '235'); }
+    if ($ok) { $send($socket, 'MAIL FROM:<' . $fromAddress . '>'); $ok = $expect($socket, '250'); }
     if ($ok) { $send($socket, 'RCPT TO:<' . $to . '>'); $ok = $expect($socket, '250'); }
     if ($ok) { $send($socket, 'DATA'); $ok = $expect($socket, '354'); }
 
@@ -469,7 +478,7 @@ function send_email(string $to, string $subject, string $bodyText): bool
         $encodedSubject = function_exists('mb_encode_mimeheader')
             ? mb_encode_mimeheader($subject, 'UTF-8')
             : $subject;
-        $headers = "From: Timetrack <" . SMTP_USER . ">\r\n"
+        $headers = "From: Timetrack <" . $fromAddress . ">\r\n"
             . "To: <{$to}>\r\n"
             . "Subject: {$encodedSubject}\r\n"
             . "MIME-Version: 1.0\r\n"
