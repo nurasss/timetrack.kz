@@ -416,6 +416,18 @@ function smtp_configured(): bool
     return defined('SMTP_HOST') && defined('SMTP_PORT');
 }
 
+// Plain-text emails risk a confirmation/reset link getting visually
+// line-wrapped by the recipient's client, which can make its auto-link
+// detector grab only part of the URL (silently dropping the token). Sending
+// as HTML with a real <a href> sidesteps that — the href is a literal
+// attribute, independent of how the visible text wraps.
+function text_to_html(string $text): string
+{
+    $escaped = htmlspecialchars($text, ENT_QUOTES, 'UTF-8');
+    $linked = preg_replace('#(https?://[^\s<]+)#', '<a href="$1">$1</a>', $escaped);
+    return str_replace("\n", "<br>\n", $linked);
+}
+
 // AUTH+TLS is only used when SMTP_USER/SMTP_PASS are defined (external
 // provider, e.g. a real mailbox over implicit TLS on port 465). Without
 // credentials, this connects in the clear with no AUTH — meant for a local
@@ -478,14 +490,16 @@ function send_email(string $to, string $subject, string $bodyText): bool
         $encodedSubject = function_exists('mb_encode_mimeheader')
             ? mb_encode_mimeheader($subject, 'UTF-8')
             : $subject;
+        $htmlBody = '<!DOCTYPE html><html><body style="font-family:sans-serif;font-size:15px;line-height:1.5">'
+            . text_to_html($bodyText) . '</body></html>';
         $headers = "From: Timetrack <" . $fromAddress . ">\r\n"
             . "To: <{$to}>\r\n"
             . "Subject: {$encodedSubject}\r\n"
             . "MIME-Version: 1.0\r\n"
-            . "Content-Type: text/plain; charset=UTF-8\r\n"
+            . "Content-Type: text/html; charset=UTF-8\r\n"
             . "Content-Transfer-Encoding: base64\r\n\r\n";
         fwrite($socket, $headers);
-        fwrite($socket, chunk_split(base64_encode($bodyText)));
+        fwrite($socket, chunk_split(base64_encode($htmlBody)));
         $send($socket, '.');
         $ok = $expect($socket, '250');
     }

@@ -230,6 +230,20 @@ function smtpConfigured() {
 // this connects in the clear with no AUTH — meant for a local Postfix relay
 // on a trusted private network (e.g. the docker bridge) that authorizes by
 // source IP via mynetworks, not by login.
+// Plain-text emails risk a confirmation/reset link getting visually
+// line-wrapped by the recipient's client, which can make its auto-link
+// detector grab only part of the URL (silently dropping the token). Sending
+// as HTML with a real <a href> sidesteps that — the href is a literal
+// attribute, independent of how the visible text wraps.
+function textToHtml(text) {
+  const escaped = String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const linked = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1">$1</a>');
+  return linked.replace(/\n/g, '<br>\n');
+}
+
 function sendEmail(to, subject, bodyText) {
   return new Promise((resolve) => {
     if (!smtpConfigured()) {
@@ -242,13 +256,14 @@ function sendEmail(to, subject, bodyText) {
     const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || `no-reply@timetrack.kz`;
 
     const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`;
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:sans-serif;font-size:15px;line-height:1.5">${textToHtml(bodyText)}</body></html>`;
     const headers = `From: Timetrack <${fromAddress}>\r\n`
       + `To: <${to}>\r\n`
       + `Subject: ${encodedSubject}\r\n`
       + 'MIME-Version: 1.0\r\n'
-      + 'Content-Type: text/plain; charset=UTF-8\r\n'
+      + 'Content-Type: text/html; charset=UTF-8\r\n'
       + 'Content-Transfer-Encoding: base64\r\n\r\n';
-    const body = headers + Buffer.from(bodyText, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+    const body = headers + Buffer.from(htmlBody, 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
 
     // Each entry: wait for `expect` reply code, then `send` the next line.
     // Index 0 has send=null — it just waits for the server's 220 greeting.
