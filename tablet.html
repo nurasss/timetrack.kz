@@ -1751,6 +1751,7 @@ function updateFlashDebug(m, decision) {
 
 function setRecognitionIdle(text) {
   const block = document.getElementById('recognition');
+  block.style.display = '';
   block.className = 'rec-card';
   document.getElementById('rec-avatar').innerHTML = '<i data-lucide="user"></i>';
   document.getElementById('rec-name').textContent = 'Поднесите планшет ближе к лицу';
@@ -1766,6 +1767,7 @@ function setRecognitionIdle(text) {
 
 function setRecognitionUnknown(text) {
   const block = document.getElementById('recognition');
+  block.style.display = '';
   block.className = 'rec-card unknown';
   document.getElementById('rec-avatar').innerHTML = '<i data-lucide="user-x"></i>';
   document.getElementById('rec-name').textContent = text || 'Сотрудник не распознан';
@@ -1779,25 +1781,19 @@ function showRecognized(emp, confidence) {
   const block = document.getElementById('recognition');
   const verified = isLivenessValid();
 
+  // Nothing from the rec-card should be on screen anywhere in this flow —
+  // not behind the gif modal while pending, and not as a popup once
+  // verified either. Only the camera feed, the gif modal (while pending),
+  // and a small bottom toast on liveness confirmation are visible; the
+  // card comes back only via setRecognitionIdle/setRecognitionUnknown.
+  block.style.display = 'none';
+
   if (!verified) {
-    // Liveness not confirmed yet — the "Проверка личности" overlay is the
-    // only thing visible; don't reveal who was matched behind it.
-    block.className = 'rec-card pending';
-    document.getElementById('rec-avatar').innerHTML = '<i data-lucide="scan-face"></i>';
-    document.getElementById('rec-name').textContent = 'Проверка личности…';
-    document.getElementById('rec-meta').textContent = 'Не убирайте лицо из кадра';
     setButtons(false, emp);
     maybeShowLivenessGuide(emp.id);
-    if (window.lucide) window.lucide.createIcons();
     return;
   }
 
-  const photo = safePhoto(emp.photo);
-  block.className = 'rec-card found';
-  document.getElementById('rec-avatar').innerHTML = photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp));
-  document.getElementById('rec-name').textContent = `${emp.fname} ${emp.lname}`;
-  const role = emp.position || 'Сотрудник';
-  document.getElementById('rec-meta').textContent = `${role} · Распознавание ${confidence}%`;
   setButtons(true, emp);
   hideLivenessGuide();
 }
