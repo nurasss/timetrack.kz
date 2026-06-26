@@ -217,8 +217,13 @@ function requireAdminPin(body, state, slug) {
     writeSecurity(slug, security);
     return { ok: false, status: 403, error: 'Неверный PIN админки' };
   }
-  // A successful normal login also invalidates any pending reset-PIN token.
-  writeSecurity(slug, defaultSecurity());
+  // Only clear the brute-force counters — this helper runs on every
+  // admin-authorized action (saveEmployee, requestTabletAccess, ...), so
+  // wiping the whole security record here would also nuke unrelated,
+  // still-pending tokens like a freshly issued tablet QR token.
+  security.failedAttempts = 0;
+  security.lockUntil = null;
+  writeSecurity(slug, security);
   return { ok: true };
 }
 
@@ -764,8 +769,11 @@ async function handleAPI(req, res) {
       && token.length === security.tabletToken.length
       && require('crypto').timingSafeEqual(Buffer.from(token), Buffer.from(security.tabletToken));
     const notExpired = Boolean(security.tabletExpires) && Date.parse(security.tabletExpires) > Date.now();
-    if (!validToken || !notExpired) {
-      return json(res, 403, { ok: false, error: 'QR-код недействителен или устарел' });
+    if (!validToken) {
+      return json(res, 403, { ok: false, error: 'Код не совпадает с тем, что выдала админка. Создайте новый QR-код и используйте именно его.' });
+    }
+    if (!notExpired) {
+      return json(res, 403, { ok: false, error: 'Срок действия QR-кода истёк. Создайте новый в Настройках.' });
     }
     return json(res, 200, { ok: true });
   }

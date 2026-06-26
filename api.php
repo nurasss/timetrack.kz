@@ -390,8 +390,13 @@ function require_admin_pin(array $input, array $state, string $securityFile): vo
         write_security($securityFile, $security);
         respond(['ok' => false, 'error' => 'Неверный PIN админки'], 403);
     }
-    // A successful normal login also invalidates any pending reset-PIN token.
-    write_security($securityFile, default_security());
+    // Only clear the brute-force counters — this helper runs on every
+    // admin-authorized action (saveEmployee, requestTabletAccess, ...), so
+    // wiping the whole security record here would also nuke unrelated,
+    // still-pending tokens like a freshly issued tablet QR token.
+    $security['failedAttempts'] = 0;
+    $security['lockUntil'] = null;
+    write_security($securityFile, $security);
 }
 
 function backup_store(string $companyDir, string $employeesFile): void
@@ -908,8 +913,11 @@ try {
         $security = read_security($securityFile);
         $validToken = $token !== '' && !empty($security['tabletToken']) && hash_equals((string)$security['tabletToken'], $token);
         $notExpired = !empty($security['tabletExpires']) && strtotime((string)$security['tabletExpires']) > time();
-        if (!$validToken || !$notExpired) {
-            respond(['ok' => false, 'error' => 'QR-код недействителен или устарел'], 403);
+        if (!$validToken) {
+            respond(['ok' => false, 'error' => 'Код не совпадает с тем, что выдала админка. Создайте новый QR-код и используйте именно его.'], 403);
+        }
+        if (!$notExpired) {
+            respond(['ok' => false, 'error' => 'Срок действия QR-кода истёк. Создайте новый в Настройках.'], 403);
         }
         respond(['ok' => true]);
     }
