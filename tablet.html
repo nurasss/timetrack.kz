@@ -1406,7 +1406,11 @@ function resetLiveness(empId = null) {
     method: '',
   };
   livenessGuideShownFor = null;
-  livenessGuideDismissedFor = null;
+  // Deliberately NOT clearing livenessGuideDismissedFor here: this runs on
+  // every transient "lost the face for a beat" reset too (a blink, a brief
+  // detection miss), not just when the person actually leaves. A manual
+  // dismissal should survive those — it's cleared explicitly in
+  // setRecognitionIdle() instead, which only fires once nobody is in frame.
   hideLivenessGuide();
   // Preserve the cooldown/run flags so detection flicker can't spam flashes.
   flashGuard = {
@@ -1756,6 +1760,10 @@ function setRecognitionIdle(text) {
   document.getElementById('rec-meta').textContent = text || 'После распознавания станут доступны кнопки отметки';
   setButtons(false);
   hideLivenessGuide();
+  // This is the genuine "nobody's in frame" baseline — only here does a past
+  // manual dismissal stop applying, so the next face (same person back again
+  // or someone new) gets a fresh instruction modal.
+  livenessGuideDismissedFor = null;
   if (window.lucide) window.lucide.createIcons();
 }
 
