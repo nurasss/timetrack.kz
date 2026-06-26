@@ -139,8 +139,8 @@
   .topbar {
     position: relative;
     z-index: 5;
-    display: grid;
-    grid-template-columns: 1fr 2fr 1fr;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 24px;
     padding: 18px 28px;
@@ -185,18 +185,6 @@
     display: block;
   }
 
-  .greeting { text-align: center; }
-  .greeting-title {
-    font-size: 22px;
-    font-weight: 700;
-    letter-spacing: -0.01em;
-  }
-  .greeting-sub {
-    margin-top: 4px;
-    color: var(--ink-dim);
-    font-size: 13px;
-    line-height: 1.4;
-  }
 
   .clock { text-align: right; font-variant-numeric: tabular-nums; }
   .clock-time {
@@ -331,25 +319,6 @@
     -webkit-backdrop-filter: blur(6px);
   }
 
-  .access-blocked {
-    position: fixed;
-    inset: 0;
-    z-index: 100;
-    display: grid;
-    place-items: center;
-    padding: 24px;
-    background: var(--page, #0f1312);
-  }
-
-  .access-blocked-card {
-    max-width: 420px;
-    text-align: center;
-    color: #ecf4ef;
-  }
-
-  .access-blocked-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; }
-  .access-blocked-sub { color: #9dacaa; font-size: 15px; line-height: 1.5; }
-
   .greet-layer.visible { display: grid; }
 
   .greet-card {
@@ -425,6 +394,18 @@
   .toast.ok { background: rgba(34, 197, 94, 0.85); border-color: rgba(180, 240, 200, 0.32); }
   .toast.danger { background: rgba(220, 65, 65, 0.85); border-color: rgba(255, 180, 180, 0.32); }
 
+  /* The liveness-confirmed cue ("Моргание подтверждено" / "Подтверждено
+     движением головы") needs to read clearly at a glance from a few steps
+     away, so it gets a bigger, bolder treatment than a regular toast. */
+  .toast.liveness {
+    min-width: min(480px, calc(100vw - 36px));
+    padding: 20px 26px;
+    font-size: 20px;
+    font-weight: 800;
+    border-width: 2px;
+    box-shadow: 0 20px 50px rgba(34, 197, 94, 0.35);
+  }
+
   .diag { position: absolute; opacity: 0; pointer-events: none; left: -9999px; }
 
   /* Liveness instruction modal — shows how to confirm (blink / turn head). */
@@ -478,10 +459,9 @@
 
   @media (max-width: 720px) {
     .app { padding: 12px; gap: 12px; }
-    .topbar { grid-template-columns: 1fr; gap: 8px; padding: 14px 18px; text-align: center; }
+    .topbar { flex-direction: column; gap: 8px; padding: 14px 18px; text-align: center; }
     .brand, .clock { text-align: center; }
     .big-btn.camera-btn { width: 64px; min-width: 64px; }
-    .greeting-sub { display: none; }
     .clock-time { font-size: 24px; }
     .rec-card { grid-template-columns: 60px 1fr; padding: 14px 16px; gap: 12px; }
     .rec-avatar { width: 60px; height: 60px; font-size: 18px; }
@@ -524,10 +504,6 @@
 
   <header class="topbar">
     <div class="brand"><img src="timetrack-logo.svg" alt="Timetrack" id="brand-logo"><span id="brand-label" hidden></span></div>
-    <div class="greeting">
-      <div class="greeting-title" id="greeting">Доброе утро!</div>
-      <div class="greeting-sub">Следуйте инструкциям и убедитесь, что отметка точно сохранилась</div>
-    </div>
     <div class="clock">
       <div class="clock-time" id="clock">--:--</div>
       <div class="clock-date" id="date-label"></div>
@@ -559,14 +535,6 @@
   <span class="diag" id="people-badge"><span></span></span>
   <span class="diag" id="video-status"></span>
   <span class="diag" id="metric-present">0</span>
-</div>
-
-<div class="access-blocked" id="access-blocked" hidden>
-  <div class="access-blocked-card">
-    <i data-lucide="qr-code" style="width:48px;height:48px;color:#9dacaa;margin-bottom:14px"></i>
-    <div class="access-blocked-title">Доступ запрещён</div>
-    <div class="access-blocked-sub">Отсканируйте QR-код в Настройках администратора (раздел «Вход в планшетную версию»), чтобы открыть киоск-режим на этом устройстве.</div>
-  </div>
 </div>
 
 <div class="greet-layer" id="greet-layer">
@@ -667,6 +635,7 @@ let flashCtx = null;
 let flashDebugEl = null;
 let wakeLockSentinel = null;
 let livenessGuideShownFor = null; // empId we've already shown the instruction modal for
+let livenessGuideDismissedFor = null; // empId the user manually closed the modal for this session
 const FULL_MATCH_INTERVAL_MS = 2200;
 const DUPLICATE_WINDOW_MS = 120000;
 const SLEEP_AFTER_MS = 45000;
@@ -912,29 +881,12 @@ function initials(emp) {
   return `${emp.fname?.[0] || ''}${emp.lname?.[0] || ''}`.toUpperCase() || '?';
 }
 
-function greetingTitleByTime(now = new Date()) {
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  if (minutes >= 8 * 60 && minutes <= 11 * 60) return 'Доброе утро!';
-  if (minutes >= 11 * 60 + 1 && minutes <= 16 * 60 + 30) return 'Добрый день!';
-  if (minutes >= 16 * 60 + 31 && minutes <= 22 * 60) return 'Добрый вечер!';
-  return 'Доброй ночи!';
-}
-
-function savedSubtitleByTime(now = new Date()) {
-  const minutes = now.getHours() * 60 + now.getMinutes();
-  if (minutes >= 16 * 60 + 31 && minutes <= 22 * 60) return 'Отметка сохранена, отличного вечера!';
-  return 'Отметка сохранена, успешного дня!';
-}
-
-const DEFAULT_GREETING_SUB = 'Следуйте инструкциям и убедитесь, что отметка точно сохранилась';
-
 function updateClock() {
   const now = new Date();
   document.getElementById('clock').textContent = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   document.getElementById('date-label').textContent = now.toLocaleDateString('ru-RU', {
     weekday: 'long', day: 'numeric', month: 'long',
   });
-  document.getElementById('greeting').textContent = greetingTitleByTime(now);
 }
 
 function renderAll() {
@@ -1219,6 +1171,9 @@ function playVerifyingSound() {
 // Shown every time someone is mid-verification — explains blinking/turning
 // the head to confirm liveness. Auto-hides once liveness is confirmed.
 function maybeShowLivenessGuide(empId) {
+  // The detection loop calls this on every tick while liveness is pending —
+  // don't fight a manual "Понятно" dismissal by re-opening it immediately.
+  if (livenessGuideDismissedFor === empId) return;
   const el = document.getElementById('liveness-guide');
   if (el) el.classList.add('visible');
   // Play the verifying cue once per detection session, not on every tick.
@@ -1235,6 +1190,7 @@ function hideLivenessGuide() {
 }
 
 function dismissLivenessGuide() {
+  livenessGuideDismissedFor = currentDetected?.employee?.id ?? livenessGuideShownFor;
   hideLivenessGuide();
 }
 
@@ -1450,6 +1406,7 @@ function resetLiveness(empId = null) {
     method: '',
   };
   livenessGuideShownFor = null;
+  livenessGuideDismissedFor = null;
   hideLivenessGuide();
   // Preserve the cooldown/run flags so detection flicker can't spam flashes.
   flashGuard = {
@@ -1515,7 +1472,7 @@ function confirmLiveness(message, method) {
   liveness.blinkClosed = false;
   liveness.method = method;
   setVideoStatus(message);
-  toast(message, 'ok');
+  toast(message, 'ok liveness', 4500);
 }
 
 function updateLiveness(detection, emp) {
@@ -1905,7 +1862,6 @@ async function markAttendance(type) {
 }
 
 let greetTimer = null;
-let topbarSubTimer = null;
 
 function showSavedGreeting(empName = '') {
   document.getElementById('greet-title').textContent = 'Отметка сохранена';
@@ -1915,58 +1871,26 @@ function showSavedGreeting(empName = '') {
   if (window.lucide) window.lucide.createIcons();
   if (greetTimer) clearTimeout(greetTimer);
   greetTimer = setTimeout(() => layer.classList.remove('visible'), 3500);
-
-  const topSub = document.querySelector('.greeting-sub');
-  if (topSub) {
-    topSub.textContent = savedSubtitleByTime();
-    if (topbarSubTimer) clearTimeout(topbarSubTimer);
-    topbarSubTimer = setTimeout(() => { topSub.textContent = DEFAULT_GREETING_SUB; }, 5000);
-  }
 }
 
-function toast(message, type = '') {
+function toast(message, type = '', durationMs = 3600) {
   const wrap = document.getElementById('toast-wrap');
   const node = document.createElement('div');
   node.className = 'toast ' + type;
   node.textContent = message;
   wrap.appendChild(node);
-  setTimeout(() => node.remove(), 3600);
+  setTimeout(() => node.remove(), durationMs);
 }
 
-// Provisioning gate: once a device has scanned a valid QR code, it's
-// remembered in localStorage so the kiosk never needs to re-scan — only the
-// very first setup of a physical tablet needs the time-limited QR.
-const TABLET_ACCESS_KEY = `timetrack_tablet_access_${SLUG}`;
-
-async function ensureTabletAccess() {
-  if (localStorage.getItem(TABLET_ACCESS_KEY) === '1') return true;
-
-  const token = (new URLSearchParams(location.search).get('token') || '').trim();
-  if (!token) return false;
-
-  try {
-    const res = await fetch(API + 'verifyTabletAccess', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token }),
-    });
-    const data = await res.json().catch(() => null);
-    if (!res.ok || !data?.ok) return false;
-    localStorage.setItem(TABLET_ACCESS_KEY, '1');
-    const url = new URL(location.href);
-    url.searchParams.delete('token');
-    history.replaceState({}, '', url);
-    return true;
-  } catch {
-    return false;
+// QR-вход в планшет полностью удалён — киоск открывается напрямую.
+// Заодно сносим любой застрявший Service Worker, чтобы старая закэшированная
+// страница больше не могла перехватывать загрузку.
+function unregisterServiceWorkers() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister()))
+      .catch(() => {});
   }
-}
-
-function showTabletAccessBlocked() {
-  document.getElementById('app').style.display = 'none';
-  const el = document.getElementById('access-blocked');
-  el.hidden = false;
-  if (window.lucide) window.lucide.createIcons();
 }
 
 async function loadCompanyInfo() {
@@ -1980,22 +1904,15 @@ async function loadCompanyInfo() {
   } catch {}
 }
 
-window.addEventListener('load', async () => {
-  const allowed = await ensureTabletAccess();
-  if (!allowed) {
-    showTabletAccessBlocked();
-    return;
-  }
+window.addEventListener('load', () => {
+  unregisterServiceWorkers();
   updateClock();
   setInterval(updateClock, 1000);
-  await Store.load();
-  await loadCompanyInfo();
+  Store.load();
+  loadCompanyInfo();
   setInterval(() => Store.load(), 20000);
   window.addEventListener('online', () => { flushQueue(); });
   if (window.lucide) window.lucide.createIcons();
-  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-    navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
-  }
   startCamera();
 });
 </script>
