@@ -912,9 +912,6 @@
             <button class="tier-pill active" onclick="selectTier(0)">10</button>
             <button class="tier-pill" onclick="selectTier(1)">20</button>
             <button class="tier-pill" onclick="selectTier(2)">50</button>
-            <button class="tier-pill" onclick="selectTier(3)">100</button>
-            <button class="tier-pill" onclick="selectTier(4)">500</button>
-            <button class="tier-pill" onclick="selectTier(5)">1000</button>
           </div>
         </div>
 
@@ -998,14 +995,11 @@
   </div>
 
   <script>
-    // Interactive Pricing Calculator (Workpace Tiers - 10%)
+    // Interactive Pricing Calculator (Workpace Tiers - 10%, max 50)
     const TIERS = [
       { count: 10,   workpace: 45000 },
       { count: 20,   workpace: 85000 },
-      { count: 50,   workpace: 200000 },
-      { count: 100,  workpace: 380000 },
-      { count: 500,  workpace: 1800000 },
-      { count: 1000, workpace: 3950000 }
+      { count: 50,   workpace: 200000 }
     ];
 
     let currentTierIdx = 0;
