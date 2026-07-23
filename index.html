@@ -536,13 +536,29 @@
   .savings-badge {
     background: var(--blue-primary);
     color: #ffffff;
-    padding: 12px 20px;
+    padding: 10px 18px;
     border-radius: 12px;
     font-weight: 700;
-    font-size: 15px;
+    font-size: 14px;
     text-align: center;
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  }
 
+  .tier-pill {
+    padding: 5px 12px;
+    border-radius: 20px;
+    border: 1px solid rgba(0,0,0,0.12);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: #ffffff;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .tier-pill:hover, .tier-pill.active {
+    background: var(--blue-primary);
+    color: #ffffff;
+    border-color: var(--blue-primary);
   }
 
   /* Footer */
@@ -886,23 +902,33 @@
         <div>
           <div class="pricing-col-label">Количество сотрудников</div>
           <div class="counter-box">
-            <button class="counter-btn" onclick="changeEmployees(-5)">-</button>
+            <button class="counter-btn" onclick="stepTier(-1)" title="Меньше"><i data-lucide="chevron-down"></i></button>
             <div class="counter-value-wrap">
               <span class="counter-value" id="emp-count">10</span>
             </div>
-            <button class="counter-btn" onclick="changeEmployees(5)">+</button>
+            <button class="counter-btn" onclick="stepTier(1)" title="Больше"><i data-lucide="chevron-up"></i></button>
+          </div>
+          <div class="tier-pills" style="display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap;">
+            <button class="tier-pill active" onclick="selectTier(0)">10</button>
+            <button class="tier-pill" onclick="selectTier(1)">20</button>
+            <button class="tier-pill" onclick="selectTier(2)">50</button>
+            <button class="tier-pill" onclick="selectTier(3)">100</button>
+            <button class="tier-pill" onclick="selectTier(4)">500</button>
+            <button class="tier-pill" onclick="selectTier(5)">1000</button>
           </div>
         </div>
 
         <div style="text-align: center;">
           <div class="pricing-col-label">Цена</div>
-          <div class="price-display" id="price-display">45 000 ₸/год</div>
+          <div class="price-display" id="price-display">40 500 ₸/год</div>
+          <div id="price-monthly-sub" style="font-size: 14px; color: var(--text-muted); margin-top: 4px;">3 375 ₸ / месяц</div>
         </div>
 
-        <div style="display: flex; justify-content: flex-end;">
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
           <div class="savings-badge" id="savings-badge">
-            Экономия: 10 000 ₸
+            Экономия 10%: 4 500 ₸
           </div>
+          <button class="btn-primary" onclick="openConsultationModal()" style="font-size: 15px; padding: 12px 24px;">Подключить тариф</button>
         </div>
       </div>
     </div>
@@ -972,23 +998,49 @@
   </div>
 
   <script>
-    // Interactive Pricing Calculator
-    let employeeCount = 10;
-    const basePricePerUserYear = 4500;
-    const fullPricePerUserYear = 5500;
+    // Interactive Pricing Calculator (Workpace Tiers - 10%)
+    const TIERS = [
+      { count: 10,   workpace: 45000 },
+      { count: 20,   workpace: 85000 },
+      { count: 50,   workpace: 200000 },
+      { count: 100,  workpace: 380000 },
+      { count: 500,  workpace: 1800000 },
+      { count: 1000, workpace: 3950000 }
+    ];
 
-    function changeEmployees(delta) {
-      employeeCount = Math.max(5, Math.min(500, employeeCount + delta));
+    let currentTierIdx = 0;
+
+    function stepTier(direction) {
+      currentTierIdx = Math.max(0, Math.min(TIERS.length - 1, currentTierIdx + direction));
+      renderPricing();
+    }
+
+    function selectTier(idx) {
+      currentTierIdx = idx;
       renderPricing();
     }
 
     function renderPricing() {
-      document.getElementById('emp-count').textContent = employeeCount;
-      const totalPrice = employeeCount * basePricePerUserYear;
-      const totalSavings = employeeCount * (fullPricePerUserYear - basePricePerUserYear);
+      const tier = TIERS[currentTierIdx];
+      const timetrackYearly = Math.round(tier.workpace * 0.9);
+      const savings = tier.workpace - timetrackYearly;
+      const timetrackMonthly = Math.round(timetrackYearly / 12);
 
-      document.getElementById('price-display').textContent = `${totalPrice.toLocaleString('ru-RU')} ₸/год`;
-      document.getElementById('savings-badge').textContent = `Экономия: ${totalSavings.toLocaleString('ru-RU')} ₸`;
+      document.getElementById('emp-count').textContent = tier.count;
+      document.getElementById('price-display').textContent = `${timetrackYearly.toLocaleString('ru-RU')} ₸/год`;
+      
+      const monthlySub = document.getElementById('price-monthly-sub');
+      if (monthlySub) {
+        monthlySub.textContent = `${timetrackMonthly.toLocaleString('ru-RU')} ₸ / месяц`;
+      }
+      
+      document.getElementById('savings-badge').textContent = `Экономия 10%: ${savings.toLocaleString('ru-RU')} ₸`;
+
+      const pills = document.querySelectorAll('.tier-pill');
+      pills.forEach((pill, idx) => {
+        if (idx === currentTierIdx) pill.classList.add('active');
+        else pill.classList.remove('active');
+      });
     }
 
     // Language switcher
