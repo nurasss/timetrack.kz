@@ -624,7 +624,13 @@
     font-weight: 700;
     color: var(--text-primary);
     display: block;
-    margin-bottom: 4px;
+    margin-bottom: 6px;
+    transition: color 0.15s ease;
+    text-decoration: none;
+  }
+  .footer-phone:hover {
+    color: var(--blue-primary);
+    text-decoration: underline;
   }
 
   /* Consultation Modal */
@@ -961,8 +967,7 @@
 
           <div class="footer-phones">
             <a href="tel:+77009111213" class="footer-phone">+7-(700)-911-12-13</a>
-            <a href="https://wa.me/77054345148" class="footer-phone" target="_blank" rel="noopener">+7-(705)-434-51-48 (WhatsApp)</a>
-            <a href="javascript:void(0)" onclick="openConsultationModal()" style="font-size: 14px; text-decoration: underline; color: var(--blue-primary); margin-top: 6px; display: inline-block;">Получить консультацию</a>
+            <a href="tel:+77054345148" class="footer-phone">+7-(705)-434-51-48 <span style="font-size: 13px; font-weight: normal; color: #16a34a; margin-left: 4px;">(WhatsApp)</span></a>
           </div>
         </div>
       </div>
