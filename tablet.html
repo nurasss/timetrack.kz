@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="icons/timetrack-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800;900&display=swap">
 <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
@@ -41,7 +41,7 @@
   body {
     background: #000;
     color: var(--ink);
-    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 16px;
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
@@ -137,17 +137,22 @@
   }
 
   .topbar {
-    position: relative;
+    position: absolute;
+    top: 20px;
+    left: 24px;
+    right: 24px;
     z-index: 5;
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
     gap: 24px;
-    padding: 18px 28px;
+    padding: 0;
     background: none;
     border: none;
     box-shadow: none;
+    pointer-events: none;
   }
+  .topbar > * { pointer-events: auto; }
 
   .big-btn.camera-btn {
     width: 88px;
@@ -177,13 +182,19 @@
   }
 
   .brand img {
-    height: 26px;
-    width: auto;
+    width: 220px;
+    height: 40px;
+    object-fit: contain;
     display: block;
   }
 
-
-  .clock { text-align: right; font-variant-numeric: tabular-nums; }
+  .clock {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
   .clock-time {
     font-size: 30px;
     font-weight: 800;
@@ -196,11 +207,29 @@
     font-size: 13px;
   }
 
+  .manual-entry-link {
+    margin-top: 10px;
+    color: var(--ink-dim);
+    font-size: 14px;
+    font-weight: 500;
+    text-decoration: underline;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+  .manual-entry-link:hover {
+    color: #ffffff;
+  }
+  .manual-entry-link[hidden] {
+    display: none !important;
+  }
+
   .stage {
-    position: relative;
+    position: absolute;
+    inset: 0;
     z-index: 4;
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
   }
 
@@ -274,13 +303,18 @@
   .rec-card.pending .rec-hint { display: block; }
 
   .bottom-bar {
-    position: relative;
+    position: absolute;
+    bottom: 20px;
+    left: 24px;
+    right: 24px;
     z-index: 5;
     display: grid;
     grid-template-columns: 1fr 88px 1fr;
     align-items: stretch;
     gap: 16px;
+    pointer-events: none;
   }
+  .bottom-bar > * { pointer-events: auto; }
 
   .big-btn {
     min-height: 88px;
@@ -395,12 +429,59 @@
      движением головы") needs to read clearly at a glance from a few steps
      away, so it gets a bigger, bolder treatment than a regular toast. */
   .toast.liveness {
-    min-width: min(480px, calc(100vw - 36px));
-    padding: 20px 26px;
-    font-size: 20px;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #ffffff;
+    font-size: 22px;
     font-weight: 800;
-    border-width: 2px;
-    box-shadow: 0 20px 50px rgba(34, 197, 94, 0.35);
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.85);
+    padding: 8px 16px;
+    min-width: auto;
+  }
+
+  .tablet-lock {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: none;
+    place-items: center;
+    padding: 24px;
+    background: radial-gradient(circle at 50% 35%, rgba(34, 197, 94, 0.18), rgba(0, 0, 0, 0.94) 62%);
+  }
+  .tablet-lock.visible { display: grid; }
+  .tablet-lock-card {
+    width: min(440px, 100%);
+    padding: 30px 28px;
+    border-radius: 24px;
+    background: rgba(15, 19, 18, 0.82);
+    border: 1px solid var(--glass-dark-border);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    text-align: center;
+  }
+  .tablet-lock-icon {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 16px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background: rgba(34, 197, 94, 0.18);
+    border: 1px solid rgba(180, 240, 200, 0.3);
+  }
+  .tablet-lock-icon i { width: 30px; height: 30px; }
+  .tablet-lock-title {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 10px;
+  }
+  .tablet-lock-text {
+    color: var(--ink-dim);
+    line-height: 1.5;
+    font-size: 15px;
   }
 
   .diag { position: absolute; opacity: 0; pointer-events: none; left: -9999px; }
@@ -454,6 +535,164 @@
   }
   .liveness-guide-btn:active { transform: translateY(1px); }
 
+  .manual-entry-btn {
+    pointer-events: auto;
+    min-height: 54px;
+    padding: 0 22px;
+    border-radius: 999px;
+    background: rgba(15, 19, 18, 0.68);
+    border: 1px solid var(--glass-dark-border);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    backdrop-filter: blur(24px) saturate(140%);
+    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    box-shadow: var(--shadow);
+  }
+
+  .manual-entry-btn i { width: 20px; height: 20px; }
+
+  .manual-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.58);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  .manual-modal.visible { display: flex; }
+
+  .manual-card {
+    width: min(860px, 100%);
+    max-height: calc(100vh - 48px);
+    overflow: auto;
+    border-radius: 24px;
+    background: rgba(15, 19, 18, 0.92);
+    border: 1px solid var(--glass-dark-border);
+    box-shadow: var(--shadow);
+    padding: 22px;
+  }
+
+  .manual-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .manual-title {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .manual-close {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    display: grid;
+    place-items: center;
+  }
+  .manual-close i { width: 22px; height: 22px; }
+
+  .manual-input {
+    width: 100%;
+    min-height: 58px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    padding: 0 18px;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 0;
+    margin-bottom: 14px;
+    outline: none;
+  }
+
+  .manual-input::placeholder {
+    color: var(--ink-faint);
+  }
+
+  .manual-input:focus { border-color: rgba(255, 255, 255, 0.46); }
+
+  .manual-layout {
+    display: block;
+  }
+
+  .manual-results {
+    display: grid;
+    gap: 8px;
+    max-height: 292px;
+    overflow: auto;
+  }
+
+  .manual-result {
+    min-height: 58px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    padding: 8px 12px;
+    text-align: left;
+  }
+
+  .manual-result .rec-avatar {
+    width: 44px;
+    height: 44px;
+    font-size: 14px;
+  }
+
+  .manual-result:active { transform: translateY(1px); }
+
+  .manual-selected {
+    display: none;
+    gap: 12px;
+  }
+  .manual-selected.visible { display: grid; }
+
+  .manual-selected-name {
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .manual-selected-meta {
+    color: var(--ink-dim);
+    margin-top: 3px;
+    font-size: 14px;
+  }
+
+  .manual-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .manual-action {
+    min-height: 64px;
+    border-radius: 16px;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .manual-action.arrive { background: var(--arrive-active); }
+  .manual-action.leave { background: var(--leave-active); }
+  .manual-action:disabled { opacity: 0.45; cursor: not-allowed; }
+
   @media (max-width: 720px) {
     .app { padding: 12px; gap: 12px; }
     .topbar { flex-direction: column; gap: 8px; padding: 14px 18px; text-align: center; }
@@ -504,6 +743,7 @@
     <div class="clock">
       <div class="clock-time" id="clock">--:--</div>
       <div class="clock-date" id="date-label"></div>
+      <a href="#" class="manual-entry-link" id="manual-entry-link" onclick="openManualModal(); return false;" hidden><u>Моё лицо не распознаётся</u></a>
     </div>
   </header>
 
@@ -534,6 +774,44 @@
   <span class="diag" id="metric-present">0</span>
 </div>
 
+<div class="tablet-lock" id="tablet-lock">
+  <div class="tablet-lock-card">
+    <div class="tablet-lock-icon"><i data-lucide="qr-code"></i></div>
+    <div class="tablet-lock-title">Планшет не привязан</div>
+    <div class="tablet-lock-text" id="tablet-lock-text">Создайте QR-код в настройках админки и откройте его на этом планшете.</div>
+  </div>
+</div>
+
+<div class="manual-modal" id="manual-modal" aria-hidden="true">
+  <div class="manual-card">
+    <div class="manual-head">
+      <div>
+        <div class="manual-title">Ручная отметка</div>
+        <div class="manual-selected-meta">Выберите сотрудника. Фото с камеры будет сделано автоматически.</div>
+      </div>
+      <button class="manual-close" type="button" onclick="closeManualModal()" aria-label="Закрыть">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <input class="manual-input" id="manual-search" type="text" inputmode="text" autocomplete="off" autocapitalize="words" placeholder="Введите ФИО" oninput="updateManualSearch(this.value)">
+    <div class="manual-layout">
+      <div>
+        <div class="manual-results" id="manual-results"></div>
+        <div class="manual-selected" id="manual-selected">
+          <div>
+            <div class="manual-selected-name" id="manual-selected-name"></div>
+            <div class="manual-selected-meta" id="manual-selected-meta"></div>
+          </div>
+          <div class="manual-actions">
+            <button class="manual-action arrive" id="manual-checkin" type="button" onclick="submitManualAttendance('checkin')">Приход</button>
+            <button class="manual-action leave" id="manual-checkout" type="button" onclick="submitManualAttendance('checkout')">Уход</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="greet-layer" id="greet-layer">
   <div class="greet-card">
     <div class="greet-icon"><i data-lucide="check"></i></div>
@@ -553,6 +831,7 @@ const API = `api.php?c=${encodeURIComponent(SLUG)}&action=`;
 const MODEL_URL = 'models';
 const STORE_KEY = `timetrack_state_${SLUG}`;
 const QUEUE_KEY = `timetrack_queue_${SLUG}`;
+const TABLET_DEVICE_TOKEN_KEY = `timetrack_tablet_device_token_${SLUG}`;
 const QUEUE_MAX = 1000;
 const DEFAULT_STATE = {
   employees: [],
@@ -577,6 +856,7 @@ let modelsLoadedFor = '';
 let currentDetected = null;
 let lastFullMatchAt = 0;
 let quickMissCount = 0;
+let failedRecognitionCount = 0;
 let lastVisualActivityAt = Date.now();
 let cameraWatchdogTimer = null;
 let lastCameraCurrentTime = -1;
@@ -644,14 +924,103 @@ const MOTION_RATIO_THRESHOLD = 0.012;
 const CAMERA_WATCHDOG_INTERVAL_MS = 5000;
 const CAMERA_STALL_TICKS_BEFORE_RESTART = 3; // ~15s of a frozen/dead feed
 
+function tabletDeviceToken() {
+  try { return localStorage.getItem(TABLET_DEVICE_TOKEN_KEY) || ''; } catch { return ''; }
+}
+
+function saveTabletDeviceToken(token) {
+  try { localStorage.setItem(TABLET_DEVICE_TOKEN_KEY, token); } catch {}
+}
+
+function clearTabletDeviceToken() {
+  try { localStorage.removeItem(TABLET_DEVICE_TOKEN_KEY); } catch {}
+}
+
+function showTabletLock(message = '') {
+  const lock = document.getElementById('tablet-lock');
+  const text = document.getElementById('tablet-lock-text');
+  if (text && message) text.textContent = message;
+  if (lock) lock.classList.add('visible');
+  stopDetection();
+  if (kioskStream) {
+    stoppingTracksIntentionally = true;
+    kioskStream.getTracks().forEach((track) => track.stop());
+    kioskStream = null;
+    stoppingTracksIntentionally = false;
+  }
+}
+
+function hideTabletLock() {
+  document.getElementById('tablet-lock')?.classList.remove('visible');
+}
+
+async function verifyTabletAccessToken(token) {
+  const res = await fetch(API + 'verifyTabletAccess', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'verifyTabletAccess', token }),
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data?.ok || !data.deviceToken) {
+    throw new Error(data?.error || 'QR-код не удалось проверить');
+  }
+  saveTabletDeviceToken(data.deviceToken);
+  if (data.state) {
+    applyState(data.state);
+    syncMode = 'server';
+    saveLocal();
+    renderAll();
+  }
+  const cleanUrl = new URL(location.href);
+  cleanUrl.searchParams.delete('token');
+  history.replaceState(null, '', cleanUrl.toString());
+}
+
+async function ensureTabletAccess() {
+  const params = new URLSearchParams(location.search);
+  const pairingToken = (params.get('token') || '').trim();
+  if (pairingToken) {
+    try {
+      await verifyTabletAccessToken(pairingToken);
+      hideTabletLock();
+      toast('Планшет привязан', 'ok');
+      return true;
+    } catch (error) {
+      clearTabletDeviceToken();
+      showTabletLock(error.message || 'QR-код недействителен. Создайте новый в админке.');
+      return false;
+    }
+  }
+  if (tabletDeviceToken()) {
+    hideTabletLock();
+    return true;
+  }
+  showTabletLock('Создайте QR-код в настройках админки и откройте его на этом планшете.');
+  return false;
+}
+
 const Store = {
   async load() {
     try {
       if (location.protocol === 'file:') throw new Error('local file');
-      const res = await fetch(API + 'state', { cache: 'no-store' });
-      if (!res.ok) throw new Error('api unavailable');
-      const data = await res.json();
-      if (!data.ok) throw new Error(data.error || 'api error');
+      const deviceToken = tabletDeviceToken();
+      if (!deviceToken) {
+        const error = new Error('Планшет не привязан');
+        error.authError = true;
+        throw error;
+      }
+      const res = await fetch(API + 'tabletState', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ action: 'tabletState', deviceToken }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        const error = new Error(data?.error || 'api unavailable');
+        error.authError = data?.code === 'TABLET_AUTH_REQUIRED';
+        throw error;
+      }
       applyState(data.state);
       syncMode = 'server';
       saveLocal();
@@ -659,6 +1028,14 @@ const Store = {
       await flushQueue();
       return;
     } catch (error) {
+      if (error.authError) {
+        clearTabletDeviceToken();
+        applyState(DEFAULT_STATE);
+        syncMode = 'local';
+        renderAll();
+        showTabletLock(error.message || 'Планшет не привязан. Создайте новый QR-код в админке.');
+        return;
+      }
       const cached = localStorage.getItem(STORE_KEY);
       applyState(cached ? JSON.parse(cached) : DEFAULT_STATE);
       syncMode = 'local';
@@ -667,24 +1044,31 @@ const Store = {
   },
 
   async post(action, body) {
+    const isLogAction = action === 'addLog' || action === 'addManualLog';
     const localAction = () => {
-      if (action === 'addLog') state.logs.unshift(body.log);
+      if (isLogAction) state.logs.unshift(body.log);
       saveLocal();
       renderAll();
     };
 
     try {
       if (location.protocol === 'file:') throw new Error('local file');
+      const deviceToken = tabletDeviceToken();
+      if (!deviceToken) {
+        showTabletLock('Планшет не привязан. Создайте новый QR-код в админке.');
+        return false;
+      }
       const res = await fetch(API + encodeURIComponent(action), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, ...body }),
+        body: JSON.stringify({ action, deviceToken, ...body }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
         const error = new Error(data?.error || 'api unavailable');
         error.appError = true;
         error.state = data?.state || null;
+        error.authError = data?.code === 'TABLET_AUTH_REQUIRED';
         throw error;
       }
       applyState(data.state);
@@ -695,6 +1079,11 @@ const Store = {
       return true;
     } catch (error) {
       if (error.appError) {
+        if (error.authError) {
+          clearTabletDeviceToken();
+          showTabletLock(error.message || 'Планшет не привязан. Создайте новый QR-код в админке.');
+          return false;
+        }
         if (error.state) {
           applyState(error.state);
           syncMode = 'server';
@@ -706,7 +1095,7 @@ const Store = {
       }
       // Network unreachable: record locally AND persist to the outbox so the
       // mark is re-sent to the server once connectivity returns.
-      if (action === 'addLog' && body.log) enqueueLog(body.log);
+      if (isLogAction && body.log) enqueueLog(body.log);
       syncMode = 'local';
       localAction();
       return true;
@@ -744,10 +1133,21 @@ function enqueueLog(log) {
   renderBadges();
 }
 
+function actionForQueuedLog(log) {
+  return log?.manual && typeof log.manualPhoto === 'string' && log.manualPhoto.startsWith('data:image/')
+    ? 'addManualLog'
+    : 'addLog';
+}
+
 let flushing = false;
 async function flushQueue() {
   if (flushing) return;
   if (location.protocol === 'file:') return;
+  const deviceToken = tabletDeviceToken();
+  if (!deviceToken) {
+    showTabletLock('Планшет не привязан. Создайте новый QR-код в админке.');
+    return;
+  }
   let queue = loadQueue();
   if (queue.length === 0) return;
   flushing = true;
@@ -755,12 +1155,13 @@ async function flushQueue() {
     // Replay oldest-first so attendance order is preserved on the server.
     while (queue.length > 0) {
       const log = queue[0];
+      const action = actionForQueuedLog(log);
       let res;
       try {
-        res = await fetch(API + 'addLog', {
+        res = await fetch(API + action, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'addLog', log }),
+          body: JSON.stringify({ action, deviceToken, log }),
         });
       } catch {
         // Still offline — keep the remaining queue for the next attempt.
@@ -777,6 +1178,10 @@ async function flushQueue() {
         }
         queue.shift();
         saveQueue(queue);
+      } else if (data?.code === 'TABLET_AUTH_REQUIRED') {
+        clearTabletDeviceToken();
+        showTabletLock(data?.error || 'Планшет не привязан. Создайте новый QR-код в админке.');
+        break;
       } else {
         // Server reachable but rejected for another reason — stop and retry
         // later rather than spin on a poison entry.
@@ -802,9 +1207,15 @@ function applyState(next) {
 }
 
 function saveLocal() {
+  const logs = state.logs.slice(0, 200).map(({ empPhoto, manualPhoto, ...rest }) => {
+    if (typeof manualPhoto === 'string' && manualPhoto && !manualPhoto.startsWith('data:image/')) {
+      rest.manualPhoto = manualPhoto;
+    }
+    return rest;
+  });
   const pruned = {
     employees: state.employees,
-    logs: state.logs.slice(0, 200).map(({ empPhoto, ...rest }) => rest),
+    logs,
     settings: state.settings,
   };
   try {
@@ -1378,6 +1789,8 @@ function recognize(detection) {
 
   const threshold = Number(state.settings.matchThreshold || 0.55);
   if (best && bestDistance <= threshold) {
+    failedRecognitionCount = 0;
+    updateManualEntryLinkVisibility();
     const confidence = Math.max(1, Math.round((1 - bestDistance) * 100));
     currentDetected = { employee: best, distance: bestDistance, confidence };
     updateLiveness(detection, best);
@@ -1386,8 +1799,17 @@ function recognize(detection) {
   } else {
     currentDetected = null;
     resetLiveness();
+    failedRecognitionCount += 1;
+    updateManualEntryLinkVisibility();
     setRecognitionUnknown('Сотрудник не распознан');
     setVideoStatus('Совпадений нет');
+  }
+}
+
+function updateManualEntryLinkVisibility() {
+  const link = document.getElementById('manual-entry-link');
+  if (link) {
+    link.hidden = failedRecognitionCount < 3;
   }
 }
 
@@ -1507,7 +1929,7 @@ function updateLiveness(detection, emp) {
   if (turn < -HEAD_TURN_THRESHOLD) liveness.headLeft = true;
   if (turn > HEAD_TURN_THRESHOLD) liveness.headRight = true;
   if (liveness.headLeft && liveness.headRight) {
-    confirmLiveness('Подтверждено движением головы', 'head');
+    confirmLiveness('Подтверждено поворотом головы', 'head');
     return;
   }
 
@@ -1515,7 +1937,7 @@ function updateLiveness(detection, emp) {
   // only catch one frame of the eyes mid-blink, so don't also require us to
   // catch the reopen frame.
   if (baseline > MIN_OPEN_EAR && openness < deepThreshold) {
-    confirmLiveness('Моргание подтверждено', 'blink');
+    confirmLiveness('Подтверждено морганием', 'blink');
     return;
   }
 
@@ -1527,7 +1949,7 @@ function updateLiveness(detection, emp) {
   }
 
   if (liveness.blinkClosed && openness > openThreshold) {
-    confirmLiveness('Моргание подтверждено', 'blink');
+    confirmLiveness('Подтверждено морганием', 'blink');
   }
 }
 
@@ -1808,6 +2230,199 @@ function setButtons(enabled, emp = currentDetected?.employee) {
   checkout.title = nextAction === 'checkout' ? 'Доступно сейчас' : 'Сначала нужен приход';
 }
 
+let manualQuery = '';
+let manualSelectedEmployee = null;
+let manualCapturedPhoto = '';
+
+function openManualModal() {
+  failedRecognitionCount = 0;
+  updateManualEntryLinkVisibility();
+  if (!tabletDeviceToken()) {
+    showTabletLock('Планшет не привязан. Создайте новый QR-код в админке.');
+    return;
+  }
+  if (!state.employees.length) {
+    toast('В админке пока нет сотрудников', 'danger');
+    return;
+  }
+  if (!kioskStream) startCamera();
+  if (sleeping) wakeFromSleep();
+  manualQuery = '';
+  manualSelectedEmployee = null;
+  manualCapturedPhoto = '';
+  hideLivenessGuide();
+  renderManualModal();
+  const modal = document.getElementById('manual-modal');
+  modal.classList.add('visible');
+  modal.setAttribute('aria-hidden', 'false');
+  setTimeout(() => document.getElementById('manual-search')?.focus(), 0);
+  noteVisualActivity();
+}
+
+function closeManualModal() {
+  const modal = document.getElementById('manual-modal');
+  modal.classList.remove('visible');
+  modal.setAttribute('aria-hidden', 'true');
+  manualSelectedEmployee = null;
+  manualCapturedPhoto = '';
+}
+
+function updateManualSearch(value) {
+  manualQuery = String(value || '').replace(/\s+/g, ' ');
+  manualSelectedEmployee = null;
+  manualCapturedPhoto = '';
+  renderManualModal();
+  noteVisualActivity();
+}
+
+function manualEmployeeById(id) {
+  return state.employees.find((employee) => String(employee.id) === String(id)) || null;
+}
+
+function manualEmployeeMatches(emp, query) {
+  const haystack = [
+    emp.id || '',
+    `${emp.fname || ''} ${emp.lname || ''}`,
+    `${emp.lname || ''} ${emp.fname || ''}`,
+    emp.position || '',
+    emp.dept || '',
+  ].join(' ').toLowerCase();
+  return query.split(/\s+/).filter(Boolean).every((part) => haystack.includes(part));
+}
+
+function manualCandidates() {
+  const query = manualQuery.trim().toLowerCase();
+  const list = query
+    ? state.employees.filter((emp) => manualEmployeeMatches(emp, query))
+    : state.employees;
+  return list.slice(0, 8);
+}
+
+function renderManualModal() {
+  const input = document.getElementById('manual-search');
+  if (input && input.value !== manualQuery) input.value = manualQuery;
+
+  const results = document.getElementById('manual-results');
+  const selected = document.getElementById('manual-selected');
+  if (manualSelectedEmployee) {
+    results.innerHTML = '';
+    selected.classList.add('visible');
+    document.getElementById('manual-selected-name').textContent = `${manualSelectedEmployee.fname || ''} ${manualSelectedEmployee.lname || ''}`.trim();
+    document.getElementById('manual-selected-meta').textContent = 'Фото зафиксировано. Выберите тип отметки.';
+    const expected = nextActionFor(manualSelectedEmployee.id);
+    document.getElementById('manual-checkin').disabled = expected !== 'checkin';
+    document.getElementById('manual-checkout').disabled = expected !== 'checkout';
+    return;
+  }
+
+  selected.classList.remove('visible');
+  const candidates = manualCandidates();
+  if (!candidates.length) {
+    results.innerHTML = '<div class="empty">Сотрудник не найден</div>';
+    return;
+  }
+  results.innerHTML = candidates.map((emp) => {
+    const photo = safePhoto(emp.photo);
+    const name = `${emp.fname || ''} ${emp.lname || ''}`.trim();
+    return `
+      <button class="manual-result" type="button" onclick="selectManualEmployee('${escapeHTML(emp.id)}')">
+        <div class="rec-avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+        <div>
+          <div class="manual-selected-name">${escapeHTML(name)}</div>
+          <div class="manual-selected-meta">${escapeHTML(emp.position || 'Сотрудник')} ${emp.dept ? '· ' + escapeHTML(emp.dept) : ''}</div>
+        </div>
+      </button>
+    `;
+  }).join('');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function captureManualPhoto() {
+  const video = document.getElementById('video-kiosk');
+  if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return '';
+  const maxWidth = 640;
+  const ratio = Math.min(1, maxWidth / video.videoWidth);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(video.videoWidth * ratio);
+  canvas.height = Math.round(video.videoHeight * ratio);
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL('image/jpeg', 0.72);
+}
+
+function selectManualEmployee(id) {
+  const emp = manualEmployeeById(id);
+  if (!emp) {
+    toast('Сотрудник не найден. Обновите данные планшета.', 'danger');
+    return;
+  }
+  const photo = captureManualPhoto();
+  if (!photo) {
+    toast('Камера ещё не готова. Подождите секунду и попробуйте снова.', 'danger');
+    return;
+  }
+  manualSelectedEmployee = emp;
+  manualCapturedPhoto = photo;
+  renderManualModal();
+}
+
+function buildAttendanceLog(emp, type, now, extra = {}) {
+  const isCheckin = type === 'checkin';
+  let isLate = false;
+  if (isCheckin) {
+    const [hour, minute] = String(emp.workStart || '09:00').split(':').map(Number);
+    const limit = new Date(now);
+    limit.setHours(hour, minute + Number(state.settings.lateMinutes || 15), 0, 0);
+    isLate = now > limit;
+  }
+  return {
+    id: 'l' + Date.now(),
+    empId: emp.id,
+    empName: `${emp.fname} ${emp.lname}`,
+    empPhoto: null,
+    type,
+    time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    date: now.toLocaleDateString('ru-RU'),
+    ts: now.toISOString(),
+    isLate,
+    verification: extra.verification || '',
+    manual: Boolean(extra.manual),
+    manualPhoto: extra.manualPhoto || '',
+  };
+}
+
+async function submitManualAttendance(type) {
+  const emp = manualSelectedEmployee;
+  if (!emp || !manualCapturedPhoto) {
+    toast('Выберите сотрудника', 'danger');
+    return;
+  }
+  const now = new Date();
+  const expected = nextActionFor(emp.id);
+  if (type !== expected) {
+    toast(`Сейчас доступно только: ${actionLabel(expected)}`, 'danger');
+    renderManualModal();
+    return;
+  }
+  if (recentDuplicate(emp.id, type, now)) {
+    toast('Такая отметка уже была недавно', 'danger');
+    renderManualModal();
+    return;
+  }
+  const log = buildAttendanceLog(emp, type, now, {
+    verification: 'manual',
+    manual: true,
+    manualPhoto: manualCapturedPhoto,
+  });
+  const saved = await Store.post('addManualLog', { log });
+  if (!saved) return;
+  closeManualModal();
+  noteVisualActivity();
+  showSavedGreeting(`${emp.fname} ${emp.lname}`);
+}
+
 async function markAttendance(type) {
   if (!currentDetected) {
     toast('Сотрудник не распознан', 'danger');
@@ -1832,27 +2447,9 @@ async function markAttendance(type) {
     return;
   }
 
-  const isCheckin = type === 'checkin';
-  let isLate = false;
-  if (isCheckin) {
-    const [hour, minute] = String(emp.workStart || '09:00').split(':').map(Number);
-    const limit = new Date(now);
-    limit.setHours(hour, minute + Number(state.settings.lateMinutes || 15), 0, 0);
-    isLate = now > limit;
-  }
-
-  const log = {
-    id: 'l' + Date.now(),
-    empId: emp.id,
-    empName: `${emp.fname} ${emp.lname}`,
-    empPhoto: null,
-    type,
-    time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-    date: now.toLocaleDateString('ru-RU'),
-    ts: now.toISOString(),
-    isLate,
+  const log = buildAttendanceLog(emp, type, now, {
     verification: FLASH_LIVENESS_ENABLED ? 'flash' : (liveness.method || 'blink'),
-  };
+  });
 
   const saved = await Store.post('addLog', { log });
   if (!saved) return;
@@ -1909,12 +2506,17 @@ window.addEventListener('load', () => {
   unregisterServiceWorkers();
   updateClock();
   setInterval(updateClock, 1000);
-  Store.load();
   loadCompanyInfo();
-  setInterval(() => Store.load(), 20000);
-  window.addEventListener('online', () => { flushQueue(); });
   if (window.lucide) window.lucide.createIcons();
-  startCamera();
+  ensureTabletAccess().then((ok) => {
+    if (!ok) return;
+    Store.load();
+    setInterval(() => {
+      if (tabletDeviceToken()) Store.load();
+    }, 20000);
+    window.addEventListener('online', () => { flushQueue(); });
+    startCamera();
+  });
 });
 </script>
 </body>
