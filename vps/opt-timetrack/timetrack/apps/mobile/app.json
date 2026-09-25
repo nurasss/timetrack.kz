@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Timetrack.kz",
+    "slug": "timetrack-kz-prototype",
+    "version": "1.0.0",
+    "scheme": "timetrack",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#071421"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Timetrack needs your location to verify attendance at an assigned work location."
+        }
+      ]
+    ]
+  }
+}

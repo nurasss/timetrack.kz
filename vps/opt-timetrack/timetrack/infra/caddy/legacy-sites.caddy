@@ -1,0 +1,40 @@
+http://{$LEGACY_BASTION_IP:127.0.0.1} {
+    @sensitive_admin path /sales-bot-admin* /webhook/*
+    handle @sensitive_admin {
+        respond "Not Found" 404
+    }
+    handle {
+        respond "Not Found" 404
+    }
+}
+
+megapos.kz, www.megapos.kz {
+    encode gzip
+    reverse_proxy {$LEGACY_BASTION_UPSTREAM_3100:127.0.0.1:3100}
+}
+
+photo-search.asimart.kz, photo-search.viklik-market.kz {
+    handle /api/* {
+        reverse_proxy {$LEGACY_BASTION_UPSTREAM_3200:127.0.0.1:3200}
+    }
+}
+
+{$LEGACY_SSLIP_HOST:legacy.example.invalid} {
+    reverse_proxy {$LEGACY_BASTION_UPSTREAM_8000:127.0.0.1:8000}
+}
+
+florange.kz, www.florange.kz {
+    encode gzip
+    reverse_proxy {$LEGACY_BASTION_UPSTREAM_3000:127.0.0.1:3000}
+}
+
+{$LEGACY_POSCENTER_HOST:poscenter-api.example.invalid} {
+    encode gzip
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy no-referrer
+        -Server
+    }
+    reverse_proxy {$LEGACY_POSCENTER_UPSTREAM:poscenter-backend:8000}
+}

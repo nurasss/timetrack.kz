@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f5f4f0">
+<title>Создать компанию — Timetrack</title>
+<link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2">
+<link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="favicon-dark.svg?v=20260904-2" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" href="favicon-new.png?v=20260904-2">
+<script defer src="https://unpkg.com/lucide@1.26.0/dist/umd/lucide.min.js" integrity="sha384-8/6sFI5UzGbr1Dgef7WSZvE4UemcVc/jyaQNsM+MilmnHQ9sce/pRv86XXj5Cg5m" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f5f4f0;
+    --surface: #ffffff;
+    --surface-soft: #f8f7f4;
+    --ink: #141b2b;
+    --muted: #667085;
+    --muted-light: #98a2b3;
+    --line: #dfe3ec;
+    --brand: #004bd8;
+    --brand-hover: #003eb5;
+    --brand-soft: #edf3ff;
+    --ok: #067647;
+    --ok-surface: #ecfdf3;
+    --danger: #b42318;
+    --danger-surface: #fef3f2;
+    --warning: #a15c07;
+    --warning-surface: #fffaeb;
+    --shadow: 0 24px 65px rgba(16, 24, 40, 0.09), 0 4px 18px rgba(16, 24, 40, 0.04);
+    --radius: 24px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { min-width: 320px; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255, 255, 255, 0.84), transparent 30rem),
+      var(--page);
+    color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, input { font: inherit; }
+
+  button, a { -webkit-tap-highlight-color: transparent; }
+
+  .page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    width: min(1100px, calc(100% - 48px));
+    min-height: 72px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
+  }
+
+  .brand img {
+    display: block;
+    width: 164px;
+    height: auto;
+  }
+
+  .login-prompt {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .login-prompt a {
+    color: var(--brand);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .login-prompt a:hover { text-decoration: underline; }
+
+  .main-content {
+    width: 100%;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 24px 32px;
+  }
+
+  .register-shell {
+    width: min(1100px, 100%);
+    min-height: 704px;
+    display: grid;
+    grid-template-columns: 42% 58%;
+    overflow: hidden;
+    border: 1px solid rgba(16, 24, 40, 0.05);
+    border-radius: var(--radius);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+  }
+
+  .info-panel {
+    padding: 52px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background: var(--surface-soft);
+    border-right: 1px solid #eceef3;
+  }
+
+  .info-panel h1 {
+    max-width: 360px;
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(30px, 3.4vw, 38px);
+    line-height: 1.16;
+    letter-spacing: -0.035em;
+  }
+
+  .info-lead {
+    max-width: 365px;
+    margin: 18px 0 0;
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1.6;
+  }
+
+  .features {
+    display: grid;
+    gap: 28px;
+    margin-top: 46px;
+  }
+
+  .feature {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 15px;
+    align-items: start;
+  }
+
+  .feature-icon {
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: var(--brand-soft);
+    color: var(--brand);
+  }
+
+  .feature-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke-width: 1.9;
+  }
+
+  .feature h2 {
+    margin: 1px 0 0;
+    color: var(--ink);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .feature p {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .form-side {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    padding: 48px 56px;
+    background: var(--surface);
+  }
+
+  .form-stack {
+    width: min(100%, 500px);
+    margin: 0 auto;
+  }
+
+  .panel-header {
+    margin: 0 0 28px;
+  }
+
+  .panel-header h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 27px;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+
+  .panel-header p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  .field {
+    display: grid;
+    gap: 7px;
+    margin-bottom: 17px;
+  }
+
+  .field label {
+    color: #344054;
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .field .hint,
+  .hint {
+    color: var(--muted-light);
+    font-size: 11px;
+    line-height: 1.45;
+  }
+
+  .input-shell {
+    position: relative;
+  }
+
+  .input-shell > svg {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    width: 19px;
+    height: 19px;
+    color: var(--muted-light);
+    transform: translateY(-50%);
+    pointer-events: none;
+    transition: color 160ms ease;
+  }
+
+  .input-shell:focus-within > svg { color: var(--brand); }
+
+  .input {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 14px 0 44px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    outline: none;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 14px;
+    transition: border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .input::placeholder { color: #b0b7c3; }
+
+  .input:hover { border-color: #c5cbd6; }
+
+  .input:focus {
+    border-color: var(--brand);
+    box-shadow: 0 0 0 4px rgba(0, 75, 216, 0.09);
+  }
+
+  .consents {
+    display: grid;
+    gap: 13px;
+    margin: 22px 0;
+  }
+
+  .consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.5;
+    cursor: pointer;
+  }
+
+  .consent input {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin: 1px 0 0;
+    accent-color: var(--brand);
+    cursor: pointer;
+  }
+
+  .consent a {
+    color: var(--brand);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .consent a:hover { text-decoration: underline; }
+
+  .consent strong {
+    color: #475467;
+    font-weight: 650;
+  }
+
+  .btn {
+    width: 100%;
+    min-height: 50px;
+    padding: 0 20px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 140ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  }
+
+  .btn svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .btn.primary {
+    background: var(--brand);
+    color: #fff;
+    box-shadow: 0 10px 22px rgba(0, 75, 216, 0.2);
+  }
+
+  .btn.primary:hover {
+    background: var(--brand-hover);
+    box-shadow: 0 12px 24px rgba(0, 75, 216, 0.25);
+    transform: translateY(-1px);
+  }
+
+  .btn.ghost {
+    margin-top: 10px;
+    border-color: var(--line);
+    color: #475467;
+  }
+
+  .btn.ghost:hover {
+    border-color: #c5cbd6;
+    background: #f9fafb;
+  }
+
+  .btn:focus-visible,
+  .login-prompt a:focus-visible,
+  .consent a:focus-visible,
+  .success-links a:focus-visible {
+    outline: 3px solid rgba(0, 75, 216, 0.18);
+    outline-offset: 2px;
+  }
+
+  .btn:disabled {
+    opacity: 0.56;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .success-box {
+    display: none;
+    text-align: center;
+    padding: 22px 0 10px;
+  }
+
+  .success-box.visible { display: block; }
+
+  .success-icon {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 18px;
+    display: grid;
+    place-items: center;
+    border-radius: 18px;
+    background: var(--ok-surface);
+    color: var(--ok);
+  }
+
+  .success-icon svg {
+    width: 28px;
+    height: 28px;
+  }
+
+  .success-box h3 {
+    margin: 0 0 9px;
+    color: var(--ink);
+    font-size: 24px;
+    letter-spacing: -0.02em;
+  }
+
+  .success-box > p {
+    max-width: 420px;
+    margin: 0 auto 16px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .email-note {
+    margin: 16px 0;
+    padding: 12px 13px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid #fedf89;
+    border-radius: 12px;
+    background: var(--warning-surface);
+    color: var(--warning);
+    font-size: 12px;
+    line-height: 1.5;
+    text-align: left;
+  }
+
+  .email-note svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    margin-top: 1px;
+  }
+
+  .success-links {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .success-links a {
+    min-height: 48px;
+    padding: 0 18px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #f9fafb;
+    color: var(--ink);
+    font-size: 14px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .success-links a:hover { border-color: var(--brand); }
+
+  .success-links a.primary {
+    border-color: var(--brand);
+    background: var(--brand);
+    color: #fff;
+  }
+
+  .success-links svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .switch-link {
+    margin-top: 20px;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .switch-link a {
+    color: var(--brand);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .switch-link a:hover { text-decoration: underline; }
+
+  .page-footer {
+    padding: 12px 24px 26px;
+    color: #7c838f;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    z-index: 50;
+    right: 18px;
+    bottom: 18px;
+    display: grid;
+    gap: 8px;
+  }
+
+  .toast {
+    min-width: min(360px, calc(100vw - 36px));
+    padding: 13px 15px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 16px 36px rgba(16, 24, 40, 0.18);
+    font-size: 14px;
+  }
+
+  .toast.ok {
+    border-color: #abefc6;
+    background: var(--ok-surface);
+    color: var(--ok);
+  }
+
+  .toast.danger {
+    border-color: #fecdca;
+    background: var(--danger-surface);
+    color: var(--danger);
+  }
+
+  @media (max-width: 880px) {
+    .topbar {
+      width: min(100% - 36px, 760px);
+    }
+
+    .main-content {
+      align-items: flex-start;
+      padding: 12px 18px 28px;
+    }
+
+    .register-shell {
+      max-width: 760px;
+      min-height: auto;
+      grid-template-columns: 1fr;
+    }
+
+    .info-panel {
+      padding: 34px 38px 36px;
+      border-right: 0;
+      border-bottom: 1px solid #eceef3;
+    }
+
+    .info-panel h1 {
+      max-width: none;
+      font-size: 29px;
+    }
+
+    .info-lead {
+      max-width: 620px;
+      margin-top: 10px;
+      font-size: 15px;
+    }
+
+    .features { display: none; }
+
+    .form-side { padding: 42px 38px 46px; }
+  }
+
+  @media (max-width: 560px) {
+    body { background: var(--surface); }
+
+    .topbar {
+      width: 100%;
+      min-height: 66px;
+      padding: 0 20px;
+      background: var(--surface-soft);
+    }
+
+    .brand img { width: 142px; }
+
+    .login-prompt span { display: none; }
+
+    .main-content { padding: 0; }
+
+    .register-shell {
+      width: 100%;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+    }
+
+    .info-panel { padding: 26px 22px 27px; }
+
+    .info-panel h1 { font-size: 25px; }
+
+    .info-lead {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .form-side {
+      align-items: flex-start;
+      padding: 32px 22px 42px;
+    }
+
+    .panel-header { margin-bottom: 25px; }
+
+    .panel-header h2 { font-size: 24px; }
+
+    .page-footer {
+      padding: 16px 20px 22px;
+      background: var(--surface);
+    }
+
+    .toast-wrap {
+      right: 12px;
+      bottom: 12px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Timetrack — главная">
+      <img src="logo-black.svg?v=20260812-1" alt="Timetrack" width="167" height="25">
+    </a>
+    <div class="login-prompt">
+      <span>Уже есть аккаунт?</span>
+      <a href="login.html">Войти</a>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div class="register-shell">
+      <aside class="info-panel" aria-label="О регистрации в Timetrack">
+        <h1>Создайте компанию в Timetrack</h1>
+        <p class="info-lead">Автоматизируйте учёт рабочего времени и контролируйте эффективность команды без лишних сложностей.</p>
+
+        <div class="features">
+          <article class="feature">
+            <div class="feature-icon"><i data-lucide="clock"></i></div>
+            <div>
+              <h2>Точный учёт времени</h2>
+              <p>Фиксируйте приход, уход и рабочие часы с точностью до секунды.</p>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="feature-icon"><i data-lucide="shield"></i></div>
+            <div>
+              <h2>Надёжность и безопасность</h2>
+              <p>Доступ к данным защищён современными механизмами безопасности.</p>
+            </div>
+          </article>
+
+          <article class="feature">
+            <div class="feature-icon"><i data-lucide="bar-chart"></i></div>
+            <div>
+              <h2>Аналитика и отчёты</h2>
+              <p>Получайте понятные отчёты по рабочему времени всей команды.</p>
+            </div>
+          </article>
+        </div>
+      </aside>
+
+      <section class="form-side" aria-label="Регистрация компании">
+        <div class="form-stack">
+          <div id="form-panel">
+            <header class="panel-header">
+              <h2>Подключить компанию</h2>
+              <p>Заполните данные для создания аккаунта.</p>
+            </header>
+
+            <form id="register-form" onsubmit="registerCompany(event)">
+              <div class="field">
+                <label for="reg-name">Название компании</label>
+                <div class="input-shell">
+                  <i data-lucide="building"></i>
+                  <input class="input" id="reg-name" placeholder="Например: ТОО Рога и Копыта" autocomplete="organization" required autofocus>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="reg-slug">Идентификатор компании (латиница)</label>
+                <div class="input-shell">
+                  <i data-lucide="type"></i>
+                  <input class="input" id="reg-slug" placeholder="Например: roga-i-kopyta" pattern="[a-z0-9][a-z0-9\-]{1,30}[a-z0-9]" autocomplete="off" required>
+                </div>
+                <div class="hint">3–32 символа: строчные латинские буквы, цифры, дефис. Будет в ссылке на вашу систему.</div>
+              </div>
+
+              <div class="field">
+                <label for="reg-pin">PIN для админки</label>
+                <div class="input-shell">
+                  <i data-lucide="lock"></i>
+                  <input class="input" id="reg-pin" type="password" inputmode="numeric" autocomplete="new-password" placeholder="6–12 цифр" minlength="6" maxlength="12" pattern="[0-9]{6,12}" required>
+                </div>
+                <div class="hint">Не используйте 123456, одинаковые или последовательные цифры.</div>
+              </div>
+
+              <div class="field">
+                <label for="reg-email">Email</label>
+                <div class="input-shell">
+                  <i data-lucide="mail"></i>
+                  <input class="input" id="reg-email" type="email" placeholder="you@company.kz" autocomplete="email" required>
+                </div>
+                <div class="hint">На него придёт ссылка подтверждения; через него также можно восстановить PIN.</div>
+              </div>
+
+              <div class="consents">
+                <label class="consent">
+                  <input type="checkbox" id="reg-accept-policy" required>
+                  <span>Я ознакомлен(а) и согласен(на) с <a href="privacy.html" target="_blank" rel="noopener">Политикой конфиденциальности</a>, включая обработку <strong>биометрических данных сотрудников</strong>.</span>
+                </label>
+                <label class="consent">
+                  <input type="checkbox" id="reg-accept-offer" required>
+                  <span>Я принимаю условия <a href="offer.html" target="_blank" rel="noopener">Публичной оферты</a>.</span>
+                </label>
+              </div>
+
+              <button class="btn primary" type="submit" id="reg-btn">
+                <i data-lucide="plus-circle"></i>
+                <span>Создать компанию</span>
+              </button>
+            </form>
+
+            <div class="switch-link" id="switch-link">
+              Уже есть аккаунт? <a href="login.html">Войти</a>
+            </div>
+          </div>
+
+          <div class="success-box" id="success-box">
+            <div class="success-icon"><i data-lucide="mail-check"></i></div>
+            <h3>Проверьте почту</h3>
+            <p id="success-name"></p>
+            <p>Мы отправили ссылку подтверждения на <strong id="success-email"></strong>. Перейдите по ней, чтобы активировать компанию.</p>
+            <div class="email-note">
+              <i data-lucide="mail-warning"></i>
+              <span>Если письмо не пришло в течение пары минут, проверьте папку «Спам» и правильность email.</span>
+            </div>
+            <div class="success-links">
+              <a id="success-admin" href="#" class="primary"><i data-lucide="settings"></i>Перейти в админку</a>
+            </div>
+            <p class="hint" style="margin-top:12px">После подтверждения откройте админку. Планшет подключается из настроек через QR-код.</p>
+            <button class="btn ghost" type="button" id="resend-btn" onclick="resendConfirmation()">Отправить письмо повторно</button>
+          </div>
+
+          <div class="success-box" id="taken-box">
+            <div class="success-icon"><i data-lucide="building"></i></div>
+            <h3>Компания уже зарегистрирована</h3>
+            <p>Идентификатор <strong id="taken-slug"></strong> уже занят. Возможно, письмо с подтверждением не дошло — его можно отправить ещё раз.</p>
+            <button class="btn primary" type="button" id="taken-resend-btn" onclick="resendConfirmation(true)">Отправить письмо повторно</button>
+            <button class="btn ghost" type="button" onclick="backToForm()">Попробовать другой идентификатор</button>
+          </div>
+
+          <div class="success-box" id="confirm-box">
+            <div class="success-icon"><i data-lucide="badge-check"></i></div>
+            <h3 id="confirm-title">Подтверждаем email…</h3>
+            <p id="confirm-message"></p>
+            <div class="success-links" id="confirm-links" style="display:none">
+              <a id="confirm-admin" href="#" class="primary"><i data-lucide="settings"></i>Перейти в админку</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="page-footer">© 2026 Timetrack. Все права защищены.</footer>
+</div>
+
+<div class="toast-wrap" id="toast-wrap" aria-live="polite" aria-atomic="true"></div>
+
+<script>
+function toast(message, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const node = document.createElement('div');
+  node.className = 'toast ' + type;
+  node.textContent = message;
+  wrap.appendChild(node);
+  setTimeout(() => node.remove(), 4000);
+}
+
+const slugInput = document.getElementById('reg-slug');
+document.getElementById('reg-name').addEventListener('input', (e) => {
+  if (slugInput.dataset.manual) return;
+  const name = e.target.value.trim();
+  const slug = name
+    .toLowerCase()
+    .replace(/[а-яё]/g, (c) => ({
+      'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z','и':'i',
+      'й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t',
+      'у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y',
+      'ь':'','э':'e','ю':'yu','я':'ya',
+    }[c] || ''))
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 32);
+  slugInput.value = slug;
+});
+
+slugInput.addEventListener('input', () => { slugInput.dataset.manual = '1'; });
+
+let pendingConfirmSlug = '';
+let pendingConfirmEmail = '';
+let takenSlug = '';
+
+function showState(stateId) {
+  document.getElementById('form-panel').style.display = stateId === 'form-panel' ? '' : 'none';
+  for (const id of ['success-box', 'taken-box', 'confirm-box']) {
+    const box = document.getElementById(id);
+    box.classList.toggle('visible', id === stateId);
+  }
+}
+
+function backToForm() {
+  showState('form-panel');
+  document.getElementById('reg-slug').focus();
+}
+
+async function resendConfirmation(fromTakenBox = false) {
+  const slug = fromTakenBox ? takenSlug : pendingConfirmSlug;
+  if (!slug) return;
+  const btn = document.getElementById(fromTakenBox ? 'taken-resend-btn' : 'resend-btn');
+  btn.disabled = true;
+  try {
+    const res = await fetch(`api.php?c=${encodeURIComponent(slug)}&action=resendConfirmation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: fromTakenBox ? '' : pendingConfirmEmail }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Письмо отправлено повторно', 'ok');
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function confirmEmailFromUrl() {
+  const params = new URLSearchParams(location.search);
+  if (params.get('confirm') !== '1') return;
+  const slug = (params.get('c') || '').trim();
+  const token = (params.get('token') || '').trim();
+
+  showState('confirm-box');
+
+  if (!slug || !token) {
+    document.getElementById('confirm-title').textContent = 'Ссылка некорректна';
+    document.getElementById('confirm-message').textContent = 'Проверьте, что вы скопировали ссылку из письма полностью.';
+    return;
+  }
+
+  try {
+    const res = await fetch(`api.php?c=${encodeURIComponent(slug)}&action=confirmEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      document.getElementById('confirm-title').textContent = 'Не удалось подтвердить email';
+      document.getElementById('confirm-message').textContent = data?.error || 'Ссылка недействительна или устарела.';
+      return;
+    }
+    document.getElementById('confirm-title').textContent = 'Email подтверждён!';
+    document.getElementById('confirm-message').textContent = 'Компания активирована, теперь можно войти в админку.';
+    document.getElementById('confirm-admin').href = `admin.html?c=${encodeURIComponent(slug)}`;
+    document.getElementById('confirm-links').style.display = '';
+    if (window.lucide) window.lucide.createIcons();
+  } catch {
+    document.getElementById('confirm-title').textContent = 'Не удалось связаться с сервером';
+    document.getElementById('confirm-message').textContent = 'Попробуйте обновить страницу.';
+  }
+}
+
+async function registerCompany(e) {
+  e.preventDefault();
+  const btn = document.getElementById('reg-btn');
+  btn.disabled = true;
+
+  const name = document.getElementById('reg-name').value.trim();
+  const slug = document.getElementById('reg-slug').value.trim().toLowerCase();
+  const pin = document.getElementById('reg-pin').value;
+  const email = document.getElementById('reg-email').value.trim();
+  const acceptedPolicy = document.getElementById('reg-accept-policy').checked;
+  const acceptedOffer = document.getElementById('reg-accept-offer').checked;
+  const weakPins = new Set(['000000', '111111', '123456', '654321', '123123', '121212', '112233', '1234']);
+  if (!/^\d{6,12}$/.test(pin) || weakPins.has(pin) || new Set(pin).size < 2) {
+    toast('PIN должен содержать 6–12 цифр и не быть слишком простым', 'danger');
+    btn.disabled = false;
+    return;
+  }
+
+  if (!acceptedPolicy || !acceptedOffer) {
+    toast('Подтвердите согласие с офертой и политикой конфиденциальности', 'danger');
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const res = await fetch('api.php?action=register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, name, pin, email, acceptedPolicy, acceptedOffer }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      if (res.status === 409) {
+        takenSlug = slug;
+        document.getElementById('taken-slug').textContent = slug;
+        showState('taken-box');
+        if (window.lucide) window.lucide.createIcons();
+      } else {
+        toast(data.error || 'Ошибка регистрации', 'danger');
+      }
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('success-name').textContent = `${name} (${slug})`;
+    document.getElementById('success-email').textContent = email;
+    document.getElementById('success-admin').href = `admin.html?c=${encodeURIComponent(slug)}`;
+    pendingConfirmSlug = slug;
+    pendingConfirmEmail = email;
+    showState('success-box');
+    if (window.lucide) window.lucide.createIcons();
+
+    toast('Компания создана, проверьте почту', 'ok');
+  } catch (error) {
+    toast('Не удалось связаться с сервером', 'danger');
+    btn.disabled = false;
+  }
+}
+
+window.addEventListener('load', () => {
+  confirmEmailFromUrl();
+  if (window.lucide) window.lucide.createIcons();
+});
+</script>
+</body>
+</html>

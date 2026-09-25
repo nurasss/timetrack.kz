@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "timetrack-web",
+      "runtimeExecutable": "C:\\Users\\bulat\\OneDrive\\Desktop\\timetrack\\timetrack-web\\dev-with-path.cmd",
+      "runtimeArgs": [],
+      "port": 3010
+    }
+  ]
+}

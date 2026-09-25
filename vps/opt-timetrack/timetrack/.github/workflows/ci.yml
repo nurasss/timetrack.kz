@@ -1,0 +1,135 @@
+name: remediation-checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: remediation-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_API_URL: ""
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build:admin
+      - run: node --test dev-timetrack/tests/*.test.js
+
+  python:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16.10-alpine3.22
+        env:
+          POSTGRES_DB: timetrack_ci
+          POSTGRES_USER: timetrack_ci
+          POSTGRES_PASSWORD: local-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U timetrack_ci -d timetrack_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7.4.6-alpine3.21
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+asyncpg://timetrack_ci:local-ci-password@localhost:5432/timetrack_ci
+      REDIS_URL: redis://localhost:6379/0
+      JWT_SECRET: ci-only-jwt-placeholder
+      APP_ENV: test
+      CORS_ORIGINS: http://localhost:3000
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: local-ci-minio
+      MINIO_SECRET_KEY: local-ci-minio-password
+      MINIO_BUCKET: local-ci-bucket
+      SMTP_HOST: smtp.example.invalid
+      SMTP_USERNAME: ci@example.invalid
+      SMTP_PASSWORD: local-ci-smtp-password
+      SMTP_FROM_EMAIL: ci@example.invalid
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: apps/api/pyproject.toml
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --require-hashes -r requirements.lock pip-audit
+        working-directory: apps/api
+      - run: python -m ruff check app migrations
+        working-directory: apps/api
+      - run: python scripts/check-api-contract.py
+      - run: ./scripts/migration-offline-check.sh
+      - run: python -m alembic -c alembic.ini upgrade head
+        working-directory: apps/api
+      - run: python -m app.seed
+        working-directory: apps/api
+      - run: python -m pytest -q
+        working-directory: apps/api
+      - run: pip-audit --local
+
+  compose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate development compose
+        run: docker compose --env-file .env.example -f docker-compose.yml config --quiet
+      - name: Validate infrastructure compose
+        run: docker compose --env-file .env.example -f infra/docker-compose.yml config --quiet
+      - name: Validate production compose
+        run: docker compose --env-file .env.example -f docker-compose.prod.yml config --quiet
+      - name: Validate Caddyfile
+        env:
+          ACME_EMAIL: ci@example.invalid
+          TIMETRACK_DOMAIN: timetrack.example
+          TIMETRACK_WWW_DOMAIN: www.timetrack.example
+        run: >-
+          docker run --rm
+          -e ACME_EMAIL
+          -e TIMETRACK_DOMAIN
+          -e TIMETRACK_WWW_DOMAIN
+          -v "$GITHUB_WORKSPACE:/etc/caddy:ro"
+          -v "$GITHUB_WORKSPACE/infra/caddy:/etc/caddy/staged:ro"
+          caddy:2.10.0-alpine
+          caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: detect --source . --redact --no-banner --config .gitleaks.toml
+      - name: Node dependency audit
+        run: npm audit --audit-level=high --omit=dev
+      - name: Shell syntax
+        run: bash -n deploy.sh scripts/*.sh

@@ -1,0 +1,9 @@
+{
+  "name": "timetrack-production",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check server.js && node --check server.vps.js && node --check scripts/migrate-security-data.js"
+  }
+}

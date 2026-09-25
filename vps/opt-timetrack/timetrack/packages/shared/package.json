@@ -1,0 +1,7 @@
+{
+  "name": "@timetrack/shared",
+  "private": true,
+  "version": "1.0.0",
+  "main": "mock-data.ts",
+  "types": "types.ts"
+}

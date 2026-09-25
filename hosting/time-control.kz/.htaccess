@@ -1,0 +1,3 @@
+RewriteEngine On
+RewriteCond %{HTTP_HOST} ^(www\.)?time-control\.kz$ [NC]
+RewriteRule ^(.*)$ https://poscenter.kz/$1 [R=301,L]

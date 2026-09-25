@@ -1,0 +1,110 @@
+encode gzip
+
+log {
+    output stdout
+    format filter {
+        request>headers>Authorization delete
+        request>headers>Proxy-Authorization delete
+        request>headers>Cookie delete
+        request>headers>Set-Cookie delete
+        request>headers>Referer delete
+        request>headers>X-Forwarded-For ip_mask 16 32
+        request>remote_ip ip_mask 16 32
+        request>client_ip ip_mask 16 32
+        request>uri query {
+            delete access_token
+            delete refresh_token
+            delete token
+            delete password
+            delete secret
+            delete code
+        }
+        wrap json
+    }
+}
+
+header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options "nosniff"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "camera=(self), microphone=(), geolocation=(self)"
+    Cross-Origin-Opener-Policy "same-origin"
+    Cross-Origin-Resource-Policy "same-origin"
+    X-Frame-Options "DENY"
+    -Server
+}
+
+@blocked_paths path /timetrack-legacy.html /kiosk.html /backups/* /backup/* /source/* /src/* /data/* /.env /.env.* /server.js /server.vps.js /smtp-config.php /docker-compose* /deploy.sh /apps/* /.git/* /certs/* /keys/*
+handle @blocked_paths {
+    respond "Not Found" 404
+}
+
+@blocked_admin path /admin /admin/* /admin-api /admin-api/* /__admin /__admin/* /_internal/* /internal/* /__timetrack/*
+handle @blocked_admin {
+    respond "Not Found" 404
+}
+
+@private_pages path /admin.html /tablet.html /login.html /register.html
+header @private_pages Cache-Control "no-store, max-age=0"
+header @private_pages Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://mc.yandex.ru https://yastatic.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://raw.githubusercontent.com https://mc.yandex.ru https://mc.webvisor.com https://mc.webvisor.org wss://mc.yandex.ru wss://mc.webvisor.com wss://mc.webvisor.org; child-src blob: https://mc.yandex.ru https://mc.webvisor.com https://mc.webvisor.org; frame-src 'self' blob: https://www.youtube.com https://youtube.com https://mc.yandex.ru https://mc.webvisor.com https://mc.webvisor.org; worker-src 'self' blob:; manifest-src 'self' blob:; upgrade-insecure-requests"
+
+@html path / *.html
+header @html Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://mc.yandex.ru https://yastatic.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://raw.githubusercontent.com https://mc.yandex.ru https://mc.webvisor.com https://mc.webvisor.org wss://mc.yandex.ru wss://mc.webvisor.com wss://mc.webvisor.org; child-src blob: https://mc.yandex.ru https://mc.webvisor.com https://mc.webvisor.org; frame-src 'self' blob: https://www.youtube.com https://youtube.com https://mc.yandex.ru https://mc.webvisor.com https://mc.webvisor.org; worker-src 'self' blob:; manifest-src 'self' blob:; upgrade-insecure-requests"
+
+@api_paths path /api.php* /api/v1/*
+header @api_paths Cache-Control "no-store, max-age=0"
+
+handle /healthz {
+    header Cache-Control "no-store, max-age=0"
+    respond "ok" 200
+}
+
+handle /readyz {
+    header Cache-Control "no-store, max-age=0"
+    rewrite * /health
+    reverse_proxy api:8000 {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 15s
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+}
+
+handle /downloads/primer-tabelya-timetrack.html {
+    header {
+        X-Frame-Options "SAMEORIGIN"
+        Content-Security-Policy "default-src 'none'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; form-action 'none'; style-src 'unsafe-inline'"
+        Cache-Control "no-store, max-age=0"
+    }
+    root * /srv/dev-timetrack
+    file_server
+}
+
+handle /api.php* {
+    reverse_proxy {$NODE_API_UPSTREAM:dev-api:8787} {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 15s
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+}
+
+handle /api/v1/* {
+    reverse_proxy {$FASTAPI_UPSTREAM:api:8000} {
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 15s
+            read_timeout 30s
+            write_timeout 30s
+        }
+    }
+}
+
+handle {
+    root * /srv/dev-timetrack
+    file_server
+}

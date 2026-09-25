@@ -1,0 +1,3382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f7f5f1">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timetrack">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Timetrack — админка</title>
+<link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2">
+<link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="favicon-dark.svg?v=20260904-2" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="admin.webmanifest?v=20260904-1">
+<link rel="apple-touch-icon" href="icons/timetrack-192.png?v=20260724-2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js" integrity="sha384-gzn2n++arkvyhdNLmUf1s6F5NZ8iAbZ7FhIt+Zw7Jlf1n/vNTmZ3+cYr7S4ogyco" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<script defer src="https://unpkg.com/lucide@1.26.0/dist/umd/lucide.min.js" integrity="sha384-8/6sFI5UzGbr1Dgef7WSZvE4UemcVc/jyaQNsM+MilmnHQ9sce/pRv86XXj5Cg5m" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js" integrity="sha384-HGmnkDZJy7mRkoARekrrj0VjEFSh9a0Z8qxGri/kTTAJkgR8hqD1lHsYSh3JdzRi" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f7f5f1;
+    --surface: #ebe7e2;
+    --surface-2: #f0ece7;
+    --ink: #1c1c1c;
+    --muted: #555555;
+    --line: rgba(28, 28, 28, 0.06);
+    --brand: #1c1c1c;
+    --brand-2: #000000;
+    --ok: #167a46;
+    --warn: #8a5d00;
+    --danger: #c24147;
+    --soft-ok: #e5f3ea;
+    --soft-warn: #f8edd5;
+    --soft-danger: #f9e5e3;
+    --ok-line: #c9dfd2;
+    --warn-line: #eadbb9;
+    --danger-line: #eccbc9;
+    --avatar-bg: #f0ece7;
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--ink);
+    font-family: Roboto, Arial, sans-serif;
+    font-size: 14px;
+  }
+
+  button, input, select, textarea { font: inherit; }
+  a { color: inherit; text-decoration: none; }
+
+  .topbar {
+    min-height: 64px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 0 24px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    min-width: 180px;
+    text-decoration: none;
+  }
+
+  .brand img {
+    height: 26px;
+    width: auto;
+    display: block;
+    filter: none;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--surface-2);
+    border-radius: var(--radius);
+  }
+
+  .tab {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 6px;
+    min-height: 36px;
+    padding: 0 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 700;
+  }
+
+  .tab.active {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: 0 1px 4px rgba(24, 32, 40, 0.08);
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  main {
+    width: min(1240px, 100%);
+    margin: 0 auto;
+    padding: 24px;
+  }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 24px;
+  }
+
+  .sub {
+    margin-top: 4px;
+    color: var(--muted);
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .panel.pad { padding: 18px; }
+  .panel.danger-zone { border-color: var(--danger-line); background: linear-gradient(180deg, rgba(255, 123, 116, 0.07), var(--surface)); }
+
+  .btn {
+    min-height: 38px;
+    border: 1px solid transparent;
+    border-radius: var(--radius);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--surface);
+    white-space: nowrap;
+  }
+
+  .btn.primary { background: var(--brand); color: var(--page); }
+  .btn.primary:hover { background: var(--brand-2); }
+  .btn.ghost { border-color: var(--line); }
+  .btn.ghost:hover { background: var(--surface-2); }
+  .btn.danger { background: var(--soft-danger); color: var(--danger); border-color: var(--danger-line); }
+  .btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .icon-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 26px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .badge.ok { color: var(--ok); background: var(--soft-ok); border-color: var(--ok-line); }
+  .badge.warn { color: var(--warn); background: var(--soft-warn); border-color: var(--warn-line); }
+  .badge.danger { color: var(--danger); background: var(--soft-danger); border-color: var(--danger-line); }
+
+  .grid-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  .metric {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .metric-value {
+    font-size: 30px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-label {
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+
+  .section-title {
+    margin: 0 0 12px;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    font-weight: 800;
+  }
+
+  .employee-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 12px;
+  }
+
+  .employee-card {
+    padding: 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    display: grid;
+    gap: 10px;
+  }
+
+  .employee-head {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: var(--avatar-bg);
+    color: var(--brand);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    font-weight: 750;
+  }
+
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 2px; }
+
+  .filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .input, select {
+    min-height: 38px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--ink);
+    padding: 0 10px;
+    outline: none;
+  }
+
+  .input:focus, select:focus { border-color: var(--brand); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+    text-align: left;
+    color: var(--muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    padding: 11px 12px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--line);
+  }
+
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  tr:last-child td { border-bottom: 0; }
+  tr.manual-row td { background: rgba(242, 189, 101, 0.08); }
+  .table-wrap { overflow: auto; }
+  .td-emp { display: flex; align-items: center; gap: 9px; min-width: 220px; }
+  .td-emp .avatar { width: 34px; height: 34px; font-size: 12px; }
+
+  .manual-photo-btn {
+    min-height: 28px;
+    border-radius: 999px;
+    border: 1px solid var(--warn-line);
+    background: var(--soft-warn);
+    color: var(--warn);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .manual-photo-btn svg { width: 14px; height: 14px; }
+
+  .manual-photo-preview {
+    display: grid;
+    gap: 12px;
+  }
+
+  .manual-photo-preview img {
+    width: 100%;
+    max-height: 70vh;
+    object-fit: contain;
+    border-radius: var(--radius);
+    background: #070908;
+    border: 1px solid var(--line);
+  }
+
+  .list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .person-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+  }
+
+  .person-row .avatar { width: 38px; height: 38px; font-size: 12px; }
+
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+  }
+
+  .field { display: grid; gap: 6px; }
+  .field label { color: var(--muted); font-size: 12px; font-weight: 700; }
+  .range-row { display: flex; align-items: center; gap: 10px; }
+  .range-row input { width: 100%; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.45; margin-top: 10px; }
+
+  .email-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin: 12px 0 0;
+    padding: 12px;
+    border: 1px solid rgba(242, 189, 101, 0.24);
+    border-radius: var(--radius);
+    background: rgba(242, 189, 101, 0.12);
+    color: var(--ink);
+    font-size: 13px;
+    line-height: 1.45;
+    text-align: left;
+  }
+
+  .email-note[hidden] { display: none; }
+
+  .email-note svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    color: var(--warn);
+    margin-top: 1px;
+  }
+
+  .empty {
+    padding: 30px 16px;
+    color: var(--muted);
+    text-align: center;
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(28, 28, 28, 0.48);
+    z-index: 100;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    width: min(720px, 100%);
+    max-height: calc(100vh - 40px);
+    overflow: auto;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+  }
+
+  .modal-head {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    z-index: 2;
+  }
+
+  .modal-head h2 { margin: 0; font-size: 18px; }
+  .modal-body { padding: 18px; display: grid; gap: 14px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+
+  .admin-lock {
+    z-index: 200;
+  }
+
+  .admin-lock .modal {
+    width: min(420px, 100%);
+  }
+
+  .capture {
+    border: 1px dashed var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    background: var(--surface-2);
+  }
+
+  .capture-preview {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .capture-stage {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius);
+    background: #11181b;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    color: #d4dde1;
+  }
+
+  .capture-stage video,
+  .capture-stage img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  #video-register { display: none; transform: scaleX(-1); }
+  #capture-img { display: none; }
+  #canvas-register { display: none; }
+
+  .capture-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    display: grid;
+    gap: 8px;
+    z-index: 150;
+  }
+
+  .toast {
+    min-width: min(360px, calc(100vw - 36px));
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    background: var(--ink);
+    color: var(--page);
+    box-shadow: var(--shadow);
+  }
+
+  .toast.ok { background: var(--ok); }
+  .toast.danger { background: var(--danger); }
+
+  @media (max-width: 900px) {
+    .topbar { position: static; flex-wrap: wrap; padding: 12px 14px; gap: 10px; }
+    .tabs { order: 3; width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+    .tab { width: 100%; }
+    main { padding: 14px; }
+    .toolbar { align-items: flex-start; flex-direction: column; }
+    .grid-4, .grid-2, .settings-grid, .form-row, .capture-preview { grid-template-columns: 1fr; }
+    .top-actions { order: 2; width: 100%; flex-direction: column; align-items: stretch; margin-left: 0; }
+    .top-actions .badge { justify-content: center; flex: 1; }
+    .top-actions .btn { width: 100%; }
+  }
+
+  @media (max-width: 760px) {
+    .topbar {
+      position: sticky;
+      top: 0;
+      min-height: 60px;
+      padding: 10px 14px;
+      flex-wrap: nowrap;
+      z-index: 80;
+      background: rgba(235, 231, 226, 0.98);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    .brand { min-width: 0; }
+    .brand img { height: 24px; }
+
+    .top-actions {
+      order: initial;
+      width: auto;
+      margin-left: auto;
+      flex-direction: row;
+      align-items: center;
+    }
+    .top-actions .badge {
+      flex: 0 0 auto;
+      min-height: 34px;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+    .top-actions .btn {
+      width: auto;
+      min-width: 34px;
+      padding: 0 9px;
+    }
+    .logout-label { display: none; }
+
+    .tabs {
+      --admin-nav-index: 0;
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: max(12px, env(safe-area-inset-bottom));
+      z-index: 200;
+      order: initial;
+      width: auto;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      padding: 8px;
+      border: 1px solid rgba(28, 28, 28, 0.05);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: 0 18px 48px rgba(28, 28, 28, 0.16), inset 0 1px 0 rgba(255,255,255,0.72);
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+    }
+
+    .tabs::before {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      left: 8px;
+      width: calc((100% - 28px) / 4);
+      border-radius: 16px;
+      background: linear-gradient(145deg, var(--brand), var(--brand-2));
+      box-shadow: 0 8px 20px rgba(28, 28, 28, 0.2), inset 0 1px 0 rgba(255,255,255,0.18);
+      transform: translateX(calc(var(--admin-nav-index) * (100% + 4px)));
+      transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
+    }
+
+    .tab {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-width: 0;
+      min-height: 58px;
+      padding: 7px 3px 6px;
+      border-radius: 16px;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      font-size: 10px;
+      line-height: 1.1;
+      text-align: center;
+      transition: color 0.22s ease, background-color 0.22s ease, transform 0.22s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .tab svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2;
+      transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .tab.active {
+      color: var(--page);
+      background: transparent;
+      box-shadow: none;
+      transform: translateY(-1px);
+    }
+
+    .tab.active svg { transform: translateY(-1px) scale(1.08); }
+    .tab:active { transform: scale(0.95); }
+
+    main {
+      padding: 14px 14px calc(116px + env(safe-area-inset-bottom));
+    }
+
+    #page-dashboard .toolbar {
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    #page-dashboard h1 {
+      font-size: 34px;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+    }
+
+    #page-dashboard .sub {
+      margin-top: 6px;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    #page-dashboard .toolbar .btn {
+      min-height: 48px;
+      padding: 0 16px;
+      border-radius: 12px;
+      font-size: 16px;
+    }
+
+    #page-dashboard .toolbar .btn svg {
+      width: 22px;
+      height: 22px;
+    }
+
+    #page-dashboard .grid-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    #page-dashboard .metric {
+      min-height: 112px;
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(235,231,226,0.96));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    #page-dashboard .metric-value {
+      font-size: 38px;
+      line-height: 1;
+      letter-spacing: -0.035em;
+    }
+
+    #page-dashboard .metric-label {
+      margin-top: 11px;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    #page-dashboard .grid-2 {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    #page-dashboard .panel {
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.82), rgba(235,231,226,0.98));
+    }
+
+    #page-dashboard .panel.pad { padding: 18px; }
+    #page-dashboard .section-title {
+      margin-bottom: 14px;
+      font-size: 14px;
+      letter-spacing: 0.01em;
+    }
+
+    #page-dashboard .person-row {
+      min-height: 64px;
+      padding: 11px;
+      border-radius: 12px;
+    }
+
+    #page-reports .toolbar {
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    #page-reports h1 {
+      font-size: 30px;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+    }
+
+    #page-reports .sub {
+      margin-top: 6px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    #page-reports .filters {
+      display: grid;
+      width: 100%;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    #page-reports .filters > * {
+      width: 100%;
+      min-width: 0;
+    }
+
+    #page-reports #filter-employee {
+      grid-column: 1 / -1;
+    }
+
+    #page-reports .filters .input,
+    #page-reports .filters select,
+    #page-reports .filters .btn {
+      min-height: 42px;
+      border-radius: 11px;
+      font-size: 13px;
+    }
+
+    #page-reports .filters .btn:last-child {
+      grid-column: 1 / -1;
+    }
+
+    #page-reports .grid-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    #page-reports .metric {
+      min-height: 112px;
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(235,231,226,0.96));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    #page-reports .metric-value {
+      font-size: 38px;
+      line-height: 1;
+      letter-spacing: -0.035em;
+    }
+
+    #page-reports .metric-label {
+      margin-top: 11px;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    #page-reports .table-wrap {
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.82), rgba(235,231,226,0.98));
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #page-reports table { min-width: 720px; }
+    #page-reports th,
+    #page-reports td { padding: 10px; }
+
+    #page-reports .table-wrap {
+      overflow: visible;
+      border: 0;
+      background: transparent;
+    }
+
+    #page-reports table,
+    #page-reports tbody {
+      display: block;
+      width: 100%;
+      min-width: 0;
+    }
+
+    #page-reports thead { display: none; }
+
+    #page-reports tbody {
+      display: grid;
+      gap: 10px;
+    }
+
+    #page-reports tbody tr {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 14px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(235,231,226,0.98));
+      box-shadow: 0 10px 24px rgba(28,28,28,0.08);
+    }
+
+    #page-reports tbody td {
+      display: flex;
+      min-width: 0;
+      padding: 0;
+      border: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      background: transparent;
+      font-size: 14px;
+    }
+
+    #page-reports tbody td::before {
+      content: attr(data-label);
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    #page-reports tbody td:nth-child(1) { order: 2; }
+    #page-reports tbody td:nth-child(2) {
+      order: 1;
+      grid-column: 1 / -1;
+      padding-bottom: 11px;
+      border-bottom: 1px solid var(--line);
+    }
+    #page-reports tbody td:nth-child(2)::before { display: none; }
+    #page-reports tbody td:nth-child(3) { order: 4; }
+    #page-reports tbody td:nth-child(4) { order: 5; }
+    #page-reports tbody td:nth-child(5) { order: 6; }
+    #page-reports tbody td:nth-child(6) { order: 3; }
+    #page-reports tbody td:nth-child(7) { order: 7; }
+
+    #page-reports .td-emp {
+      width: 100%;
+      min-width: 0;
+    }
+
+    #page-reports .td-emp .avatar {
+      width: 40px;
+      height: 40px;
+    }
+
+    #page-reports .td-emp .name {
+      max-width: 100%;
+      font-size: 14px;
+    }
+
+    #page-reports tbody td[colspan] {
+      grid-column: 1 / -1;
+      display: block;
+    }
+
+    #page-reports tbody td[colspan]::before { display: none; }
+    #page-reports tbody td[colspan] .empty {
+      padding: 22px 12px;
+      border: 0;
+    }
+
+    #page-reports .manual-photo-btn {
+      min-height: 26px;
+      padding: 3px 8px;
+      font-size: 11px;
+    }
+
+    .toast-wrap {
+      right: 14px;
+      bottom: calc(102px + env(safe-area-inset-bottom));
+      left: 14px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tabs::before,
+    .tab,
+    .tab svg {
+      transition: none !important;
+    }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="admin.html">
+    <img src="logo-black.svg?v=20260812-1" alt="Timetrack">
+  </a>
+  <nav class="tabs" aria-label="Админка">
+    <button class="tab active" data-page="dashboard" aria-current="page" onclick="switchPage('dashboard')"><i data-lucide="layout-dashboard"></i>Дашборд</button>
+    <button class="tab" data-page="employees" onclick="switchPage('employees')"><i data-lucide="users"></i>Сотрудники</button>
+    <button class="tab" data-page="reports" onclick="switchPage('reports')"><i data-lucide="table-properties"></i>Табель</button>
+    <button class="tab" data-page="settings" onclick="switchPage('settings')"><i data-lucide="settings"></i>Настройки</button>
+  </nav>
+  <div class="top-actions">
+    <span class="badge" id="sync-badge"><i data-lucide="cloud"></i><span>Проверка связи</span></span>
+    <button class="btn ghost small" type="button" onclick="logoutAdmin()" aria-label="Выйти из админки">
+      <i data-lucide="log-out"></i><span class="logout-label">Выйти</span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section class="page active" id="page-dashboard">
+    <div class="toolbar">
+      <div>
+        <h1>Дашборд</h1>
+        <div class="sub">Состояние смены и последние отметки</div>
+      </div>
+      <button class="btn ghost" onclick="reloadState()"><i data-lucide="refresh-cw"></i>Обновить</button>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric">
+        <div class="metric-value" id="dash-employees">0</div>
+        <div class="metric-label">Сотрудников</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dash-present">0</div>
+        <div class="metric-label">Сейчас на работе</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dash-marks">0</div>
+        <div class="metric-label">Отметок сегодня</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="dash-late">0</div>
+        <div class="metric-label">Опозданий</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel pad">
+        <h2 class="section-title">На работе</h2>
+        <div class="list" id="present-list"></div>
+      </div>
+      <div class="panel pad">
+        <h2 class="section-title">Последние отметки</h2>
+        <div class="list" id="last-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-employees">
+    <div class="toolbar">
+      <div>
+        <h1>Сотрудники</h1>
+        <div class="sub" id="employee-count">0 сотрудников</div>
+      </div>
+      <button class="btn primary" onclick="openEmployeeModal()"><i data-lucide="user-plus"></i>Добавить</button>
+    </div>
+    <div class="employee-grid" id="employee-grid"></div>
+  </section>
+
+  <section class="page" id="page-reports">
+    <div class="toolbar">
+      <div>
+        <h1>Табель посещаемости</h1>
+        <div class="sub">Фильтрация, просмотр и выгрузка CSV/XLSX</div>
+      </div>
+      <div class="filters">
+        <input class="input" type="date" id="filter-from" onchange="renderReports()">
+        <input class="input" type="date" id="filter-to" onchange="renderReports()">
+        <select id="filter-employee" onchange="renderReports()"></select>
+        <select id="export-format" title="Формат выгрузки">
+          <option value="xlsx">XLSX</option>
+          <option value="csv">CSV</option>
+        </select>
+        <button class="btn primary" onclick="exportTimesheet()"><i data-lucide="download"></i>Табель</button>
+        <button class="btn ghost" onclick="exportMarks()"><i data-lucide="file-down"></i>Отметки</button>
+      </div>
+    </div>
+
+    <div class="grid-4" style="margin-bottom:14px">
+      <div class="metric">
+        <div class="metric-value" id="report-days">0</div>
+        <div class="metric-label">Строк табеля</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="report-checkins">0</div>
+        <div class="metric-label">Приходов</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="report-checkouts">0</div>
+        <div class="metric-label">Уходов</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value" id="report-hours">0</div>
+        <div class="metric-label">Часов</div>
+      </div>
+    </div>
+
+    <div class="panel table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Дата</th>
+            <th>Сотрудник</th>
+            <th>Приход</th>
+            <th>Уход</th>
+            <th>Часы</th>
+            <th>Статус</th>
+            <th>Проверка</th>
+          </tr>
+        </thead>
+        <tbody id="timesheet-body"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="page" id="page-settings">
+    <div class="toolbar">
+      <div>
+        <h1>Настройки</h1>
+        <div class="sub">Модель распознавания, порог совпадения и правила опоздания</div>
+      </div>
+      <button class="btn primary" onclick="saveSettings()"><i data-lucide="save"></i>Сохранить</button>
+    </div>
+
+    <div class="panel pad">
+      <div class="settings-grid">
+        <div class="field">
+          <label for="setting-model">Модель распознавания</label>
+          <select id="setting-model">
+            <option value="tiny">Быстрая модель Tiny Face Detector</option>
+            <option value="ssd">Точная модель SSD Mobilenet</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="setting-threshold">Порог совпадения <span id="threshold-label">0.55</span></label>
+          <div class="range-row">
+            <input type="range" min="0.35" max="0.55" step="0.01" id="setting-threshold" oninput="document.getElementById('threshold-label').textContent=this.value">
+          </div>
+        </div>
+        <div class="field">
+          <label for="setting-late">Допуск опоздания, минут</label>
+          <input class="input" type="number" min="0" max="120" id="setting-late">
+        </div>
+         <div class="field">
+           <label for="setting-current-pin">Текущий PIN админки</label>
+           <input class="input" type="password" id="setting-current-pin" inputmode="numeric" autocomplete="current-password" placeholder="Только для смены PIN">
+         </div>
+         <div class="field">
+           <label for="setting-pin">Новый PIN админки</label>
+           <input class="input" type="password" id="setting-pin" inputmode="numeric" autocomplete="new-password" placeholder="6–12 цифр, оставить текущий" minlength="6" maxlength="12">
+         </div>
+      </div>
+      <div class="hint">
+        Быстрая модель лучше для планшета и слабого интернета. Точная модель загружается дольше, но устойчивее при сложном свете. Чем ниже порог совпадения, тем строже распознавание.
+      </div>
+    </div>
+
+    <div class="panel pad" style="margin-top:14px">
+      <h2 class="section-title">Графики работы</h2>
+      <div class="hint" style="margin-bottom:10px">Создайте графики и назначьте их сотрудникам. По ним считаются рабочие часы и опоздания.</div>
+      <div id="schedules-editor" style="display:grid; gap:10px"></div>
+      <button class="btn ghost small" type="button" onclick="addSchedule()"><i data-lucide="plus"></i>Добавить график</button>
+    </div>
+
+    <div class="panel pad" style="margin-top:14px">
+      <h2 class="section-title">Вход в планшетную версию</h2>
+      <button class="btn primary" onclick="openTabletAccessModal()"><i data-lucide="qr-code"></i>Создать QR-код</button>
+      <button class="btn ghost" onclick="loadTabletDevices()"><i data-lucide="tablet-smartphone"></i>Обновить устройства</button>
+      <button class="btn danger" onclick="revokeAllTabletDevices()"><i data-lucide="shield-off"></i>Отозвать все</button>
+      <div class="hint">QR-код действует около минуты. Доступ привязанного планшета можно отозвать в любой момент; токен устройства действует до 90 дней.</div>
+      <div id="tablet-devices-list" style="margin-top:12px; display:grid; gap:8px"></div>
+    </div>
+
+    <div class="panel pad" style="margin-top:14px">
+      <h2 class="section-title">Обслуживание данных</h2>
+      <button class="btn danger" onclick="clearLogs()"><i data-lucide="trash-2"></i>Очистить отметки</button>
+      <div class="hint">Сотрудники и их фото останутся, удалится только журнал приходов и уходов.</div>
+    </div>
+
+    <div class="panel pad danger-zone" style="margin-top:14px">
+      <h2 class="section-title">Опасная зона</h2>
+      <button class="btn danger" onclick="openDeleteCompanyModal()"><i data-lucide="trash-2"></i>Удалить компанию</button>
+      <div class="hint">Будут удалены сотрудники, фото, настройки и все отметки этой компании. Действие нельзя отменить.</div>
+    </div>
+  </section>
+</main>
+
+<div class="modal-backdrop" id="employee-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="employee-modal-title">Добавить сотрудника</h2>
+      <button class="btn ghost small" onclick="closeEmployeeModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="field">
+          <label for="emp-fname">Имя</label>
+          <input class="input" id="emp-fname" autocomplete="given-name">
+        </div>
+        <div class="field">
+          <label for="emp-lname">Фамилия</label>
+          <input class="input" id="emp-lname" autocomplete="family-name">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="emp-iin">ИИН</label>
+          <input class="input" id="emp-iin" placeholder="12 цифр" maxlength="12" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="emp-position">Должность</label>
+          <input class="input" id="emp-position">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="field">
+          <label for="emp-dept">Отдел</label>
+          <input class="input" id="emp-dept">
+        </div>
+        <div class="field">
+          <label for="emp-schedule">График работы</label>
+          <select class="input" id="emp-schedule"></select>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:-6px">График задаёт рабочие дни, время начала и окончания смены.</div>
+
+      <div class="capture">
+        <h3 class="section-title">Фото для распознавания</h3>
+        <div class="capture-preview">
+          <div class="capture-stage">
+            <video id="video-register" autoplay muted playsinline></video>
+            <img id="capture-img" src="" alt="">
+            <span id="capture-placeholder">Фото не выбрано</span>
+          </div>
+          <div>
+            <div id="capture-status" class="sub">Можно сделать снимок с камеры или загрузить готовое фото.</div>
+            <div class="capture-actions">
+              <button class="btn ghost small" id="btn-start-camera" onclick="startRegisterCamera()"><i data-lucide="camera"></i>Включить камеру</button>
+              <button class="btn primary small" id="btn-snap" onclick="snapFace()" disabled><i data-lucide="scan-face"></i>Сделать снимок</button>
+              <label class="btn ghost small">
+                <i data-lucide="camera"></i>С камеры
+                <input type="file" accept="image/*" capture="user" style="display:none" onchange="loadPhotoFromFile(event)">
+              </label>
+              <label class="btn ghost small">
+                <i data-lucide="upload"></i>Из файла
+                <input type="file" accept="image/*" style="display:none" onchange="loadPhotoFromFile(event)">
+              </label>
+            </div>
+          </div>
+        </div>
+        <canvas id="canvas-register" width="640" height="480"></canvas>
+      </div>
+
+      <div class="field" style="margin-top:12px">
+        <label style="display:flex; gap:8px; align-items:flex-start">
+          <input type="checkbox" id="emp-consent" style="margin-top:4px">
+          <span>Сотрудник дал явное согласие на обработку фото и биометрического шаблона лица. Согласие можно отозвать через удаление сотрудника.</span>
+        </label>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn ghost" onclick="closeEmployeeModal()">Отмена</button>
+        <button class="btn primary" id="employee-save-btn" onclick="saveEmployee()"><i data-lucide="save"></i>Сохранить сотрудника</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop admin-lock open" id="admin-lock">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Вход в админку</h2>
+    </div>
+    <div class="modal-body" id="admin-lock-login">
+      <div class="field">
+        <label for="admin-pin">PIN</label>
+        <input class="input" type="password" id="admin-pin" inputmode="numeric" autocomplete="current-password" onkeydown="if(event.key==='Enter') unlockAdmin()">
+      </div>
+      <button class="btn primary" onclick="unlockAdmin()"><i data-lucide="lock-keyhole"></i>Войти</button>
+      <button class="btn ghost" type="button" onclick="showForgotPin()" style="margin-top:8px; width:100%">Забыли PIN?</button>
+      <a href="login.html" class="text-link" style="display:block; text-align:center; margin-top:12px; font-size:13px;">Войти в другую компанию</a>
+    </div>
+    <div class="modal-body" id="admin-lock-forgot" style="display:none">
+      <div class="field">
+        <label for="forgot-email">Email компании</label>
+        <input class="input" type="email" id="forgot-email" placeholder="you@company.kz" onkeydown="if(event.key==='Enter') requestPinReset()">
+        <div class="hint">Если email совпадает с указанным при регистрации, на него придёт ссылка для сброса PIN.</div>
+      </div>
+      <button class="btn primary" onclick="requestPinReset()"><i data-lucide="mail"></i>Отправить ссылку</button>
+      <div class="email-note" id="admin-forgot-email-note" hidden aria-live="polite">
+        <i data-lucide="mail-warning"></i>
+        <span>Если письмо не пришло в течение пары минут, проверьте папку «Спам» и правильность email.</span>
+      </div>
+      <button class="btn ghost" type="button" onclick="showLogin()" style="margin-top:8px; width:100%">Назад</button>
+    </div>
+    <div class="modal-body" id="admin-lock-reset" style="display:none">
+      <div class="field">
+        <label for="reset-new-pin">Новый PIN</label>
+        <input class="input" type="password" id="reset-new-pin" inputmode="numeric" placeholder="6–12 цифр" minlength="6" maxlength="12" onkeydown="if(event.key==='Enter') submitPinReset()">
+      </div>
+      <button class="btn primary" onclick="submitPinReset()"><i data-lucide="key-round"></i>Установить новый PIN</button>
+    </div>
+    <div class="modal-body" id="admin-lock-upgrade" style="display:none">
+      <p>Текущий PIN больше не соответствует требованиям безопасности. Установите новый PIN, чтобы продолжить работу.</p>
+       <div class="field">
+         <label for="upgrade-current-pin">Текущий PIN</label>
+         <input class="input" type="password" id="upgrade-current-pin" inputmode="numeric" autocomplete="current-password" placeholder="Текущий PIN админки">
+       </div>
+       <div class="field">
+         <label for="upgrade-new-pin">Новый PIN</label>
+         <input class="input" type="password" id="upgrade-new-pin" inputmode="numeric" autocomplete="new-password" placeholder="6–12 цифр" minlength="6" maxlength="12" onkeydown="if(event.key==='Enter') submitRequiredPinChange()">
+         <div class="hint">Не используйте 123456, одинаковые или последовательные цифры.</div>
+       </div>
+      <button class="btn primary" onclick="submitRequiredPinChange()"><i data-lucide="shield-check"></i>Сохранить безопасный PIN</button>
+    </div>
+    <div class="modal-body" id="admin-lock-unverified" style="display:none">
+      <p>Email компании ещё не подтверждён. Мы отправили ссылку для подтверждения на почту при регистрации — перейдите по ней, чтобы активировать компанию.</p>
+      <div class="field">
+        <label for="unverified-email">Email, указанный при регистрации</label>
+        <input class="input" type="email" id="unverified-email" placeholder="you@company.kz">
+      </div>
+      <button class="btn primary" onclick="resendCompanyConfirmation()"><i data-lucide="mail"></i>Отправить письмо повторно</button>
+      <div class="email-note" id="admin-unverified-email-note" hidden aria-live="polite">
+        <i data-lucide="mail-warning"></i>
+        <span>Если письмо не пришло в течение пары минут, проверьте папку «Спам» и правильность email.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="tablet-access-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>QR-код для планшета</h2>
+      <button class="btn ghost small" onclick="closeTabletAccessModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <div id="tablet-qr-canvas-wrap" style="display:flex; justify-content:center; margin-bottom:12px"></div>
+      <div class="hint" id="tablet-access-countdown" style="font-size:16px; font-weight:700">Действует 01:00</div>
+      <div class="hint" style="margin-top:2px">Откройте ссылку прямо на планшете сейчас. После сканирования планшет запомнит доступ.</div>
+      <div class="hint" style="word-break:break-all; margin-top:8px" id="tablet-access-url"></div>
+      <button class="btn ghost" style="margin-top:10px" onclick="regenerateTabletAccess()"><i data-lucide="refresh-cw"></i>Создать новый</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="manual-photo-modal" onclick="if(event.target===this) closeManualPhotoModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Фото ручной отметки</h2>
+      <button class="btn ghost small" onclick="closeManualPhotoModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="manual-photo-preview">
+        <div class="hint" id="manual-photo-label">Загрузка фото...</div>
+        <img id="manual-photo-img" alt="Фото ручной отметки">
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="delete-company-modal">
+  <div class="modal">
+    <div class="modal-head">
+      <h2>Удалить компанию</h2>
+      <button class="btn ghost small" onclick="closeDeleteCompanyModal()"><i data-lucide="x"></i>Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="badge danger"><i data-lucide="triangle-alert"></i>Данные будут удалены без восстановления</div>
+      <div class="hint">Для подтверждения введите PIN админки и идентификатор компании.</div>
+      <div class="field">
+        <label for="delete-company-pin">PIN админки</label>
+        <input class="input" type="password" id="delete-company-pin" inputmode="numeric" autocomplete="current-password">
+      </div>
+      <div class="field">
+        <label for="delete-company-slug">Идентификатор компании: <strong id="delete-company-slug-label"></strong></label>
+        <input class="input" id="delete-company-slug" autocomplete="off" spellcheck="false" oninput="updateDeleteCompanyButton()">
+      </div>
+      <div style="display:flex; justify-content:flex-end; gap:8px">
+        <button class="btn ghost" onclick="closeDeleteCompanyModal()">Отмена</button>
+        <button class="btn danger" id="delete-company-confirm" onclick="deleteCompany()" disabled><i data-lucide="trash-2"></i>Удалить навсегда</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+let SLUG = new URLSearchParams(location.search).get('c') || '';
+if (!SLUG) {
+  let savedSlug = '';
+  try { savedSlug = localStorage.getItem('timetrack_last_company_slug') || ''; } catch (_) {}
+  if (savedSlug) {
+    location.replace(`admin.html?c=${encodeURIComponent(savedSlug)}`);
+  } else {
+    location.replace('login.html');
+  }
+} else {
+  try {
+    localStorage.setItem('timetrack_last_company_slug', SLUG);
+    localStorage.setItem('timetrack_last_admin_url', `admin.html?c=${encodeURIComponent(SLUG)}`);
+  } catch (_) {}
+}
+const API = `api.php?c=${encodeURIComponent(SLUG)}&action=`;
+const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights';
+const STORE_KEY = `timetrack_state_${SLUG}`;
+const DEFAULT_STATE = {
+  employees: [],
+  logs: [],
+  settings: { recognitionModel: 'tiny', matchThreshold: 0.55, lateMinutes: 15 },
+};
+
+installCompanyManifest('admin');
+
+let state = clone(DEFAULT_STATE);
+let syncMode = 'local';
+let activePage = 'dashboard';
+let registerStream = null;
+let modelsLoadedFor = '';
+let capturedDescriptor = null;
+let capturedPhoto = null;
+let editingEmployeeId = null;
+let adminCsrfToken = '';
+let lastLoadErrorCode = '';
+
+const Store = {
+  async load() {
+    try {
+      if (location.protocol === 'file:') throw new Error('local file');
+      const res = await fetch(API + 'state', { cache: 'no-store', credentials: 'same-origin' });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        lastLoadErrorCode = data?.code || '';
+        if (data?.csrfToken) adminCsrfToken = data.csrfToken;
+        const error = new Error(data?.error || 'api error');
+        error.appError = true;
+        error.status = res.status;
+        error.code = data?.code || '';
+        throw error;
+      }
+      lastLoadErrorCode = '';
+      adminCsrfToken = data.csrfToken || '';
+      applyState(data.state);
+      syncMode = 'server';
+      saveLocal();
+      renderAll();
+      return true;
+    } catch (error) {
+      applyState(DEFAULT_STATE);
+      saveLocal();
+      syncMode = error.appError ? 'server' : 'local';
+      renderAll();
+      return false;
+    }
+  },
+
+  async post(action, body) {
+    try {
+      if (location.protocol === 'file:') throw new Error('local file');
+      const payload = { action, ...body };
+      const headers = { 'Content-Type': 'application/json' };
+      if (adminCsrfToken) headers['X-CSRF-Token'] = adminCsrfToken;
+      const res = await fetch(API + encodeURIComponent(action), {
+        method: 'POST',
+        headers,
+        credentials: 'same-origin',
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        const error = new Error(data?.error || 'api unavailable');
+        error.appError = true;
+        error.status = res.status;
+        error.code = data?.code || '';
+        if (data?.csrfToken) adminCsrfToken = data.csrfToken;
+        throw error;
+      }
+      if (data.csrfToken) adminCsrfToken = data.csrfToken;
+      if (data.state) applyState(data.state);
+      syncMode = 'server';
+      saveLocal();
+      renderAll();
+      return data;
+    } catch (error) {
+      if (error.appError) {
+        if (error.status === 401 || error.code === 'ADMIN_AUTH_REQUIRED') lockAdmin();
+        if (error.code === 'PIN_CHANGE_REQUIRED') showRequiredPinChange();
+        throw error;
+      }
+      syncMode = 'local';
+      renderAll();
+      throw new Error('Операция доступна только при подключении к серверу');
+    }
+  },
+};
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function applyState(next) {
+  state = {
+    employees: Array.isArray(next?.employees) ? next.employees : [],
+    logs: Array.isArray(next?.logs) ? next.logs : [],
+    settings: { ...DEFAULT_STATE.settings, ...(next?.settings || {}) },
+  };
+}
+
+function saveLocal() {
+  try { localStorage.removeItem(STORE_KEY);
+  try {
+    localStorage.removeItem('timetrack_last_company_slug');
+    localStorage.removeItem('timetrack_last_admin_url');
+    localStorage.removeItem('timetrack_last_company_input');
+  } catch (_) {} } catch {}
+}
+
+function installCompanyManifest(page) {
+  if (!SLUG || location.protocol === 'file:') return;
+  const pageFile = page === 'admin' ? 'admin.html' : 'tablet.html';
+  const startUrl = new URL(`${pageFile}?c=${encodeURIComponent(SLUG)}`, location.href);
+  const manifest = {
+    name: `Timetrack ${SLUG}`,
+    short_name: 'Timetrack',
+    description: 'Админка учёта рабочего времени Timetrack',
+    lang: 'ru',
+    id: startUrl.pathname + startUrl.search,
+    start_url: startUrl.href,
+    scope: new URL('./', location.href).href,
+    display: page === 'admin' ? 'standalone' : 'fullscreen',
+    display_override: page === 'admin' ? ['standalone'] : ['fullscreen', 'standalone'],
+    orientation: page === 'admin' ? 'any' : 'landscape',
+    background_color: '#f7f5f1',
+    theme_color: '#f7f5f1',
+    categories: ['business', 'productivity'],
+    icons: [
+      {
+        src: new URL('icons/timetrack-192.png?v=20260724-2', location.href).href,
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: new URL('icons/timetrack-512.png?v=20260724-2', location.href).href,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const href = URL.createObjectURL(blob);
+  const link = document.querySelector('link[rel="manifest"]') || document.createElement('link');
+  link.rel = 'manifest';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function lockAdmin() {
+  adminCsrfToken = '';
+  applyState(DEFAULT_STATE);
+  saveLocal();
+  renderAll();
+  document.getElementById('admin-lock').classList.add('open');
+  showLogin();
+  setTimeout(() => document.getElementById('admin-pin')?.focus(), 0);
+}
+
+async function unlockAdmin() {
+  const pin = document.getElementById('admin-pin').value.trim();
+  if (!pin) {
+    toast('Введите PIN админки', 'danger');
+    return;
+  }
+  try {
+    const data = await Store.post('checkAdminPin', { adminPin: pin });
+    document.getElementById('admin-pin').value = '';
+    if (data?.pinChangeRequired) {
+      showRequiredPinChange();
+      toast('Установите новый безопасный PIN', 'danger');
+      return;
+    }
+    document.getElementById('admin-lock').classList.remove('open');
+    toast('Админка открыта', 'ok');
+  } catch (error) {
+    lockAdmin();
+    toast(error.message || 'Неверный PIN админки', 'danger');
+  }
+}
+
+async function verifyAdminAccess() {
+  if (lastLoadErrorCode === 'PIN_CHANGE_REQUIRED') {
+    showRequiredPinChange();
+    return;
+  }
+  if (syncMode === 'server' && adminCsrfToken) {
+    document.getElementById('admin-lock').classList.remove('open');
+    return;
+  }
+  lockAdmin();
+}
+
+function showForgotPin() {
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = '';
+  document.getElementById('admin-forgot-email-note').hidden = true;
+}
+
+function showLogin() {
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = 'none';
+  document.getElementById('admin-lock-upgrade').style.display = 'none';
+  document.getElementById('admin-lock-unverified').style.display = 'none';
+  document.getElementById('admin-forgot-email-note').hidden = true;
+  document.getElementById('admin-unverified-email-note').hidden = true;
+  document.getElementById('admin-lock-login').style.display = '';
+}
+
+function showRequiredPinChange() {
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = 'none';
+  document.getElementById('admin-lock-unverified').style.display = 'none';
+  document.getElementById('admin-lock-upgrade').style.display = '';
+  document.getElementById('admin-lock').classList.add('open');
+  setTimeout(() => document.getElementById('upgrade-new-pin')?.focus(), 0);
+}
+
+function validNewPinInput(pin) {
+  if (!/^\d{6,12}$/.test(pin)) return false;
+  const weak = new Set(['000000', '111111', '123456', '654321', '123123', '121212', '112233', '1234']);
+  return !weak.has(pin) && new Set(pin).size > 1;
+}
+
+async function submitRequiredPinChange() {
+  const currentInput = document.getElementById('upgrade-current-pin');
+  const input = document.getElementById('upgrade-new-pin');
+  const currentPin = currentInput.value.trim();
+  const newPin = input.value.trim();
+  if (!currentPin) {
+    toast('Введите текущий PIN', 'danger');
+    return;
+  }
+  if (!validNewPinInput(newPin)) {
+    toast('PIN должен содержать 6–12 цифр и не быть слишком простым', 'danger');
+    return;
+  }
+  try {
+    await Store.post('changeAdminPin', { currentPin, newPin });
+    currentInput.value = '';
+    input.value = '';
+    document.getElementById('admin-lock-upgrade').style.display = 'none';
+    document.getElementById('admin-lock').classList.remove('open');
+    toast('Безопасный PIN установлен', 'ok');
+  } catch (error) {
+    toast(error.message || 'Не удалось изменить PIN', 'danger');
+  }
+}
+
+async function logoutAdmin() {
+  try {
+    if (adminCsrfToken) await Store.post('logoutAdmin', {});
+  } catch {}
+  lockAdmin();
+  toast('Вы вышли из админки', 'ok');
+}
+
+async function requestPinReset() {
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) {
+    toast('Введите email', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(API + 'requestPinReset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Если email верный, на него отправлена ссылка', 'ok');
+    document.getElementById('admin-forgot-email-note').hidden = false;
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  }
+}
+
+let pendingResetToken = '';
+
+function checkResetTokenInUrl() {
+  const token = new URLSearchParams(location.search).get('reset');
+  if (!token) return;
+  pendingResetToken = token;
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = '';
+  document.getElementById('admin-lock').classList.add('open');
+}
+
+async function submitPinReset() {
+  const newPin = document.getElementById('reset-new-pin').value.trim();
+  if (!validNewPinInput(newPin)) {
+    toast('PIN должен содержать 6–12 цифр и не быть слишком простым', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(API + 'resetPin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resetToken: pendingResetToken, newPin }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.ok) {
+      toast(data?.error || 'Не удалось сбросить PIN', 'danger');
+      return;
+    }
+    const url = new URL(location.href);
+    url.searchParams.delete('reset');
+    history.replaceState({}, '', url);
+    document.getElementById('reset-new-pin').value = '';
+    document.getElementById('admin-lock-reset').style.display = 'none';
+    document.getElementById('admin-lock-login').style.display = '';
+    toast('PIN обновлён, войдите с новым PIN', 'ok');
+  } catch {
+    toast('Не удалось сбросить PIN', 'danger');
+  }
+}
+
+function showEmailNotVerified() {
+  document.getElementById('admin-lock-login').style.display = 'none';
+  document.getElementById('admin-lock-forgot').style.display = 'none';
+  document.getElementById('admin-lock-reset').style.display = 'none';
+  document.getElementById('admin-lock-unverified').style.display = '';
+  document.getElementById('admin-unverified-email-note').hidden = true;
+  document.getElementById('admin-lock').classList.add('open');
+}
+
+async function resendCompanyConfirmation() {
+  const email = document.getElementById('unverified-email').value.trim();
+  if (!email) {
+    toast('Введите email', 'danger');
+    return;
+  }
+  try {
+    const res = await fetch(API + 'resendConfirmation', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json().catch(() => null);
+    toast(data?.message || 'Письмо отправлено повторно', 'ok');
+    document.getElementById('admin-unverified-email-note').hidden = false;
+  } catch {
+    toast('Не удалось отправить запрос', 'danger');
+  }
+}
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+  }[char]));
+}
+
+function safePhoto(photo) {
+  if (typeof photo !== 'string' || photo.length > 1700000) return '';
+  const match = /^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(photo);
+  if (!match || match[2].length % 4 !== 0) return '';
+  try {
+    const binary = atob(match[2]);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const jpeg = bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255;
+    const png = bytes.length >= 8 && [137, 80, 78, 71, 13, 10, 26, 10].every((value, index) => bytes[index] === value);
+    const webp = bytes.length >= 12 && String.fromCharCode(...bytes.slice(0, 4)) === 'RIFF' && String.fromCharCode(...bytes.slice(8, 12)) === 'WEBP';
+    if ((match[1] === 'jpeg' && !jpeg) || (match[1] === 'png' && !png) || (match[1] === 'webp' && !webp)) return '';
+    return photo;
+  } catch {
+    return '';
+  }
+}
+
+function initials(emp) {
+  return `${emp.fname?.[0] || ''}${emp.lname?.[0] || ''}`.toUpperCase() || '?';
+}
+
+function employeeById(id) {
+  return state.employees.find((employee) => employee.id === id);
+}
+
+function switchPage(page) {
+  activePage = page;
+  document.querySelectorAll('.page').forEach((node) => node.classList.toggle('active', node.id === 'page-' + page));
+  const tabs = Array.from(document.querySelectorAll('.tab'));
+  tabs.forEach((node) => {
+    const isActive = node.dataset.page === page;
+    node.classList.toggle('active', isActive);
+    if (isActive) node.setAttribute('aria-current', 'page');
+    else node.removeAttribute('aria-current');
+  });
+  const activeTabIndex = tabs.findIndex((node) => node.dataset.page === page);
+  if (activeTabIndex >= 0) {
+    document.querySelector('.tabs')?.style.setProperty('--admin-nav-index', String(activeTabIndex));
+  }
+  if (window.matchMedia('(max-width: 760px)').matches) {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  renderAll();
+  if (page === 'settings' && adminCsrfToken) loadTabletDevices();
+}
+
+async function reloadState() {
+  await Store.load();
+  toast('Данные обновлены', 'ok');
+}
+
+function renderAll() {
+  renderSyncBadge();
+  renderDashboard();
+  renderEmployees();
+  renderReportFilters();
+  renderReports();
+  renderSettings();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function renderSyncBadge() {
+  const badge = document.getElementById('sync-badge');
+  badge.className = 'badge ' + (syncMode === 'server' ? 'ok' : 'warn');
+  badge.querySelector('span').textContent = syncMode === 'server' ? 'Сервер' : 'Локально';
+}
+
+function todayLogs() {
+  const today = new Date().toLocaleDateString('ru-RU');
+  return state.logs.filter((log) => log.date === today);
+}
+
+function currentStatusMap(logs = todayLogs()) {
+  const status = {};
+  logs.slice().reverse().forEach((log) => { status[log.empId] = log.type; });
+  return status;
+}
+
+function renderDashboard() {
+  const logs = todayLogs();
+  const status = currentStatusMap(logs);
+  const presentIds = Object.entries(status).filter(([, type]) => type === 'checkin').map(([id]) => id);
+  document.getElementById('dash-employees').textContent = state.employees.length;
+  document.getElementById('dash-present').textContent = presentIds.length;
+  document.getElementById('dash-marks').textContent = logs.length;
+  document.getElementById('dash-late').textContent = logs.filter((log) => log.isLate).length;
+
+  const presentList = document.getElementById('present-list');
+  if (!presentIds.length) {
+    presentList.innerHTML = '<div class="empty">Никого нет на работе</div>';
+  } else {
+    presentList.innerHTML = presentIds.map((id) => {
+      const emp = employeeById(id);
+      if (!emp) return '';
+      const last = logs.find((log) => log.empId === id && log.type === 'checkin');
+      return personRow(emp, last?.time || '', 'ok');
+    }).join('');
+  }
+
+  const lastList = document.getElementById('last-list');
+  const recent = state.logs.slice(0, 8);
+  if (!recent.length) {
+    lastList.innerHTML = '<div class="empty">Отметок пока нет</div>';
+  } else {
+    lastList.innerHTML = recent.map((log) => {
+      const emp = employeeById(log.empId) || { fname: log.empName, lname: '', photo: log.empPhoto };
+      return personRow(emp, `${log.date} · ${log.time}`, log.type === 'checkin' ? 'ok' : '');
+    }).join('');
+  }
+}
+
+function personRow(emp, detail, badgeClass = '') {
+  const photo = safePhoto(emp.photo);
+  return `
+    <div class="person-row">
+      <div class="avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+      <div>
+        <div class="name">${escapeHTML(`${emp.fname || ''} ${emp.lname || ''}`.trim())}</div>
+        <div class="meta">${escapeHTML(detail)}</div>
+      </div>
+      <span class="badge ${badgeClass}">${badgeClass === 'ok' ? 'Активен' : 'Запись'}</span>
+    </div>
+  `;
+}
+
+function renderEmployees() {
+  const label = `${state.employees.length} сотрудник${declension(state.employees.length)}`;
+  document.getElementById('employee-count').textContent = label;
+  const grid = document.getElementById('employee-grid');
+  if (!state.employees.length) {
+    grid.innerHTML = '<div class="empty" style="grid-column:1/-1">Добавьте первого сотрудника и зарегистрируйте фото лица</div>';
+    return;
+  }
+
+  grid.innerHTML = state.employees.map((emp) => {
+    const photo = safePhoto(emp.photo);
+    return `
+      <article class="employee-card">
+        <div class="employee-head">
+          <div class="avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+          <div>
+            <div class="name">${escapeHTML(emp.fname)} ${escapeHTML(emp.lname)}</div>
+            <div class="meta">${escapeHTML(emp.position || 'Сотрудник')} · ${escapeHTML(emp.dept || 'Общий')}${emp.iin ? ` · ИИН: ${escapeHTML(emp.iin)}` : ''}</div>
+          </div>
+          <div class="icon-actions">
+            <button class="btn ghost small" onclick="editEmployee('${escapeHTML(emp.id)}')" title="Редактировать"><i data-lucide="pencil"></i></button>
+            <button class="btn danger small" onclick="deleteEmployee('${escapeHTML(emp.id)}')" title="Удалить"><i data-lucide="trash-2"></i></button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:8px; align-items:center">
+          <span class="badge ${Array.isArray(emp.descriptor) ? 'ok' : 'warn'}">
+            <i data-lucide="scan-face"></i>${Array.isArray(emp.descriptor) ? 'Лицо есть' : 'Без фото'}
+          </span>
+          <span class="meta">${escapeHTML(scheduleLabel(scheduleById(emp.scheduleId)))}${emp.scheduleId ? '' : ` · ${escapeHTML(emp.workStart || '09:00')}`}</span>
+        </div>
+      </article>
+    `;
+  }).join('');
+}
+
+function declension(n) {
+  if (n % 10 === 1 && n % 100 !== 11) return '';
+  if (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) return 'а';
+  return 'ов';
+}
+
+function renderReportFilters() {
+  const select = document.getElementById('filter-employee');
+  const current = select.value;
+  const empMap = new Map();
+  state.employees.forEach((emp) => {
+    empMap.set(emp.id, `${emp.fname || ''} ${emp.lname || ''}`.trim());
+  });
+  state.logs.forEach((log) => {
+    if (log.empId && !empMap.has(log.empId)) {
+      empMap.set(log.empId, `${log.empName || 'Сотрудник'} (удалён)`);
+    }
+  });
+  let options = '<option value="">Все сотрудники</option>';
+  empMap.forEach((name, id) => {
+    options += `<option value="${escapeHTML(id)}">${escapeHTML(name)}</option>`;
+  });
+  select.innerHTML = options;
+  select.value = current;
+}
+
+function filteredLogs() {
+  const from = document.getElementById('filter-from').value;
+  const to = document.getElementById('filter-to').value;
+  const employee = document.getElementById('filter-employee').value;
+  return state.logs.filter((log) => {
+    const day = localDateKey(log);
+    if (from && day < from) return false;
+    if (to && day > to) return false;
+    if (employee && log.empId !== employee) return false;
+    return true;
+  });
+}
+
+function renderReports() {
+  const logs = filteredLogs();
+  const rows = aggregateTimesheet(logs);
+  document.getElementById('report-days').textContent = rows.length;
+  document.getElementById('report-checkins').textContent = logs.filter((log) => log.type === 'checkin').length;
+  document.getElementById('report-checkouts').textContent = logs.filter((log) => log.type === 'checkout').length;
+  document.getElementById('report-hours').textContent = rows.reduce((sum, row) => sum + (row.hours || 0), 0).toFixed(1);
+
+  const tbody = document.getElementById('timesheet-body');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty">Нет данных за выбранный период</div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((row) => {
+    const emp = row.employee;
+    const photo = safePhoto(emp.photo);
+    const manualPath = row.manualPhotos[0]?.path || '';
+    return `
+      <tr class="${row.manual ? 'manual-row' : ''}">
+        <td data-label="Дата">${formatDate(row.date)}</td>
+        <td data-label="Сотрудник">
+          <div class="td-emp">
+            <div class="avatar">${photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp))}</div>
+            <div>
+              <div class="name">${escapeHTML(row.name)}</div>
+              <div class="meta">${escapeHTML(emp.position || '')} ${emp.dept ? '· ' + escapeHTML(emp.dept) : ''} ${emp.iin ? '· ИИН: ' + escapeHTML(emp.iin) : ''}</div>
+            </div>
+          </div>
+        </td>
+        <td data-label="Приход">${escapeHTML(row.firstIn || '-')}</td>
+        <td data-label="Уход">${escapeHTML(row.lastOut || '-')}</td>
+        <td data-label="Часы">${row.hours ? row.hours.toFixed(2) : '-'}</td>
+        <td data-label="Статус"><span class="badge ${row.late ? 'warn' : 'ok'}">${row.late ? 'Опоздание' : 'Вовремя'}</span></td>
+        <td data-label="Проверка">${row.manual
+          ? `<button class="manual-photo-btn" type="button" data-photo="${escapeHTML(manualPath)}" data-label="${escapeHTML(row.name + ' · ' + formatDate(row.date))}" onclick="openManualPhotoFromButton(this)" ${manualPath ? '' : 'disabled'}><i data-lucide="triangle-alert"></i>Ручной ввод</button>`
+          : `<span class="badge ${row.verified ? 'ok' : 'warn'}">${escapeHTML(verificationLabel(row.verification))}</span>`}</td>
+      </tr>
+    `;
+  }).join('');
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function aggregateTimesheet(logs) {
+  const sorted = logs.slice().sort((a, b) => new Date(a.ts) - new Date(b.ts));
+  const rows = [];
+  const openRows = new Map();
+
+  const makeRow = (log, emp, ts) => ({
+    date: localDateKey(log),
+    empId: log.empId,
+    employee: emp,
+    name: log.empName || `${emp.fname || ''} ${emp.lname || ''}`.trim(),
+    firstIn: '',
+    firstInTs: null,
+    lastOut: '',
+    lastOutTs: null,
+    late: false,
+    verified: false,
+    verification: '',
+    manual: false,
+    manualPhotos: [],
+    hours: 0,
+    sortTs: ts,
+  });
+
+  const applyLogMeta = (row, log) => {
+    if (log.isLate) row.late = true;
+    if (isManualLog(log)) {
+      row.manual = true;
+      if (!row.verification) row.verification = 'manual';
+      if (log.manualPhoto) row.manualPhotos.push({ path: log.manualPhoto, ts: log.ts });
+    } else if (log.verification === 'blink' || log.verification === 'head') {
+      row.verified = true;
+      if (!row.verification) row.verification = log.verification;
+    }
+  };
+
+  sorted.forEach((log) => {
+    const date = localDateKey(log);
+    const openKey = `${log.empId}|${date}`;
+    const emp = employeeById(log.empId) || {
+      id: log.empId, fname: log.empName, lname: '', position: '', dept: '', photo: log.empPhoto,
+    };
+    const ts = new Date(log.ts);
+    const safeTs = Number.isNaN(ts.getTime()) ? new Date(0) : ts;
+
+    if (log.type === 'checkin') {
+      const row = makeRow(log, emp, safeTs);
+      row.firstIn = log.time;
+      row.firstInTs = safeTs;
+      row.sortTs = safeTs;
+      applyLogMeta(row, log);
+      rows.push(row);
+      if (!openRows.has(openKey)) openRows.set(openKey, []);
+      openRows.get(openKey).push(row);
+      return;
+    }
+
+    const stack = openRows.get(openKey) || [];
+    const row = stack.length ? stack.pop() : makeRow(log, emp, safeTs);
+    if (!rows.includes(row)) rows.push(row);
+    if (!row.sortTs || row.sortTs.getTime() === 0) row.sortTs = safeTs;
+    if (!row.lastOutTs || safeTs > row.lastOutTs) {
+      row.lastOut = log.time;
+      row.lastOutTs = safeTs;
+    }
+    applyLogMeta(row, log);
+  });
+
+  return rows.map((row) => {
+    if (row.firstInTs && row.lastOutTs && row.lastOutTs > row.firstInTs) {
+      const schedule = scheduleById(row.employee?.scheduleId);
+      const date = new Date(`${row.date}T12:00:00`);
+      const weekDay = date.getDay() || 7;
+      row.hours = schedule
+        ? (schedule.days?.includes(weekDay) ? scheduleHours(schedule) : 0)
+        : (row.lastOutTs - row.firstInTs) / 36e5;
+    }
+    return row;
+  }).sort((a, b) => (
+    b.date.localeCompare(a.date) ||
+    ((b.sortTs?.getTime?.() || 0) - (a.sortTs?.getTime?.() || 0)) ||
+    String(a.name || '').localeCompare(String(b.name || ''))
+  ));
+}
+
+function localDateKey(log) {
+  const date = new Date(log.ts);
+  if (!Number.isNaN(date.getTime())) {
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, '0'),
+      String(date.getDate()).padStart(2, '0'),
+    ].join('-');
+  }
+  const match = String(log.date || '').match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  return match ? `${match[3]}-${match[2]}-${match[1]}` : '';
+}
+
+function formatDate(iso) {
+  const [year, month, day] = iso.split('-');
+  return `${day}.${month}.${year}`;
+}
+
+function verificationLabel(value) {
+  if (value === 'blink') return 'Моргание';
+  if (value === 'head') return 'Поворот головы';
+  if (value === 'manual') return 'Ручной ввод';
+  return 'Нет';
+}
+
+function isManualLog(log) {
+  return log?.manual === true || log?.verification === 'manual' || Boolean(log?.manualPhoto);
+}
+
+const manualPhotoCache = new Map();
+
+function closeManualPhotoModal() {
+  document.getElementById('manual-photo-modal').classList.remove('open');
+  document.getElementById('manual-photo-img').removeAttribute('src');
+}
+
+function openManualPhotoFromButton(button) {
+  const path = button.dataset.photo || '';
+  const label = button.dataset.label || 'Фото ручной отметки';
+  openManualPhoto(path, label);
+}
+
+async function openManualPhoto(path, label) {
+  if (!path) {
+    toast('Фото ручной отметки не найдено', 'danger');
+    return;
+  }
+  const modal = document.getElementById('manual-photo-modal');
+  const img = document.getElementById('manual-photo-img');
+  const labelNode = document.getElementById('manual-photo-label');
+  modal.classList.add('open');
+  img.removeAttribute('src');
+  labelNode.textContent = 'Загрузка фото...';
+  try {
+    let image = manualPhotoCache.get(path);
+    if (!image) {
+      const res = await fetch(API + 'manualPhoto', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': adminCsrfToken,
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ path }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok || !data.image) {
+        throw new Error(data?.error || 'Не удалось загрузить фото');
+      }
+      image = data.image;
+      manualPhotoCache.set(path, image);
+    }
+    img.src = image;
+    labelNode.textContent = label;
+  } catch (error) {
+    labelNode.textContent = error.message || 'Не удалось загрузить фото';
+    toast(labelNode.textContent, 'danger');
+  }
+}
+
+const SCHEDULE_DAYS = [
+  ['1', 'Пн'], ['2', 'Вт'], ['3', 'Ср'], ['4', 'Чт'], ['5', 'Пт'], ['6', 'Сб'], ['7', 'Вс'],
+];
+
+function schedules() {
+  return Array.isArray(state.settings?.schedules) ? state.settings.schedules : [];
+}
+
+function scheduleById(id) {
+  return schedules().find((schedule) => String(schedule.id) === String(id)) || null;
+}
+
+function scheduleLabel(schedule) {
+  if (!schedule) return 'Не назначен';
+  const days = SCHEDULE_DAYS.filter(([day]) => schedule.days?.includes(Number(day))).map(([, label]) => label).join(', ');
+  return `${schedule.name}: ${schedule.start}–${schedule.end} · ${days}`;
+}
+
+function scheduleHours(schedule) {
+  if (!schedule?.start || !schedule?.end) return 0;
+  const [startHour, startMinute] = schedule.start.split(':').map(Number);
+  const [endHour, endMinute] = schedule.end.split(':').map(Number);
+  return Math.max(0, ((endHour * 60 + endMinute) - (startHour * 60 + startMinute)) / 60);
+}
+
+function renderScheduleSelect(selected = '') {
+  const select = document.getElementById('emp-schedule');
+  select.innerHTML = '<option value="">Без графика (старое время начала)</option>' + schedules()
+    .map((schedule) => `<option value="${escapeHTML(schedule.id)}">${escapeHTML(scheduleLabel(schedule))}</option>`).join('');
+  select.value = selected || '';
+}
+
+function renderSchedulesEditor() {
+  const editor = document.getElementById('schedules-editor');
+  if (!editor) return;
+  const items = schedules();
+  editor.innerHTML = items.length ? items.map((schedule, index) => `
+    <div class="panel pad" style="background:var(--surface-2, #f7f5f2)">
+      <div class="form-row">
+        <div class="field"><label>Название</label><input class="input" data-schedule="name" data-index="${index}" value="${escapeHTML(schedule.name)}"></div>
+        <div class="field"><label>Начало</label><input class="input" type="time" data-schedule="start" data-index="${index}" value="${escapeHTML(schedule.start)}"></div>
+        <div class="field"><label>Окончание</label><input class="input" type="time" data-schedule="end" data-index="${index}" value="${escapeHTML(schedule.end)}"></div>
+      </div>
+      <div class="field"><label>Рабочие дни</label><div style="display:flex; flex-wrap:wrap; gap:10px">${SCHEDULE_DAYS.map(([day, label]) => `<label style="display:flex; align-items:center; gap:4px"><input type="checkbox" data-schedule-day="${day}" data-index="${index}" ${schedule.days?.includes(Number(day)) ? 'checked' : ''}>${label}</label>`).join('')}</div></div>
+      <button class="btn danger small" type="button" onclick="removeSchedule(${index})"><i data-lucide="trash-2"></i>Удалить</button>
+    </div>`).join('') : '<div class="hint">Графиков пока нет. Добавьте, например, «Пятидневка 09:00–18:00».</div>';
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function addSchedule() {
+  state.settings.schedules = [...schedules(), { id: `s${Date.now()}`, name: 'Новый график', days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' }];
+  renderSchedulesEditor();
+}
+
+function removeSchedule(index) {
+  state.settings.schedules = schedules().filter((_, itemIndex) => itemIndex !== index);
+  renderSchedulesEditor();
+}
+
+function schedulesFromEditor() {
+  return schedules().map((schedule, index) => {
+    const value = (field) => document.querySelector(`[data-schedule="${field}"][data-index="${index}"]`)?.value || '';
+    const days = SCHEDULE_DAYS.map(([day]) => Number(day)).filter((day) => document.querySelector(`[data-schedule-day="${day}"][data-index="${index}"]`)?.checked);
+    return { id: schedule.id, name: value('name').trim(), start: value('start'), end: value('end'), days };
+  });
+}
+
+function renderSettings() {
+  document.getElementById('setting-model').value = state.settings.recognitionModel || 'tiny';
+  document.getElementById('setting-threshold').value = Math.min(Number(state.settings.matchThreshold) || 0.55, 0.55);
+  document.getElementById('threshold-label').textContent = document.getElementById('setting-threshold').value;
+  document.getElementById('setting-late').value = state.settings.lateMinutes ?? 15;
+  const pinInput = document.getElementById('setting-pin');
+  const currentPinInput = document.getElementById('setting-current-pin');
+  if (document.activeElement !== pinInput) pinInput.value = '';
+  if (document.activeElement !== currentPinInput) currentPinInput.value = '';
+  renderSchedulesEditor();
+}
+
+async function saveSettings() {
+  const nextPin = document.getElementById('setting-pin').value.trim();
+  const currentPin = document.getElementById('setting-current-pin').value.trim();
+  if (nextPin && !validNewPinInput(nextPin)) {
+    toast('Новый PIN должен содержать 6–12 цифр и не быть слишком простым', 'danger');
+    return;
+  }
+  if (nextPin && !currentPin) {
+    toast('Введите текущий PIN для смены PIN', 'danger');
+    return;
+  }
+  const settings = {
+    recognitionModel: document.getElementById('setting-model').value,
+    matchThreshold: Number(document.getElementById('setting-threshold').value),
+    lateMinutes: Number(document.getElementById('setting-late').value || 15),
+    schedules: schedulesFromEditor(),
+  };
+  try {
+    if (nextPin) await Store.post('changeAdminPin', { currentPin, newPin: nextPin });
+    await Store.post('updateSettings', { settings });
+  } catch (error) {
+    toast(error.message || 'Не удалось сохранить настройки', 'danger');
+    return;
+  }
+  document.getElementById('setting-pin').value = '';
+  document.getElementById('setting-current-pin').value = '';
+  modelsLoadedFor = '';
+  toast('Настройки сохранены', 'ok');
+}
+
+function openEmployeeModal(emp = null) {
+  editingEmployeeId = emp?.id || null;
+  document.getElementById('employee-modal').classList.add('open');
+  document.getElementById('employee-modal-title').textContent = emp ? 'Редактировать сотрудника' : 'Добавить сотрудника';
+  document.getElementById('employee-save-btn').innerHTML = `<i data-lucide="save"></i>${emp ? 'Сохранить изменения' : 'Сохранить сотрудника'}`;
+  document.getElementById('emp-fname').value = emp?.fname || '';
+  document.getElementById('emp-lname').value = emp?.lname || '';
+  document.getElementById('emp-iin').value = emp?.iin || '';
+  document.getElementById('emp-position').value = emp?.position || '';
+  document.getElementById('emp-dept').value = emp?.dept || '';
+  renderScheduleSelect(emp?.scheduleId || '');
+  document.getElementById('emp-consent').checked = Boolean(emp?.consent?.grantedAt && !emp?.consent?.revokedAt);
+  capturedDescriptor = Array.isArray(emp?.descriptor) ? emp.descriptor : null;
+  capturedPhoto = safePhoto(emp?.photo);
+  resetCapture(emp);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function editEmployee(id) {
+  const emp = employeeById(id);
+  if (!emp) {
+    toast('Сотрудник не найден', 'danger');
+    return;
+  }
+  openEmployeeModal(emp);
+}
+
+function closeEmployeeModal() {
+  document.getElementById('employee-modal').classList.remove('open');
+  stopRegisterCamera();
+  editingEmployeeId = null;
+}
+
+function resetCapture(emp = null) {
+  document.getElementById('video-register').style.display = 'none';
+  const img = document.getElementById('capture-img');
+  const photo = safePhoto(emp?.photo) || capturedPhoto;
+  img.style.display = photo ? 'block' : 'none';
+  img.src = photo || '';
+  document.getElementById('capture-placeholder').style.display = photo ? 'none' : 'block';
+  document.getElementById('btn-snap').disabled = true;
+  document.getElementById('capture-status').textContent = photo
+    ? 'Текущее фото сохранено. Можно оставить его или загрузить новое.'
+    : 'Можно сделать снимок с камеры или загрузить готовое фото.';
+}
+
+async function startRegisterCamera() {
+  try {
+    stopRegisterCamera();
+    registerStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    const video = document.getElementById('video-register');
+    video.srcObject = registerStream;
+    video.style.display = 'block';
+    document.getElementById('capture-img').style.display = 'none';
+    document.getElementById('capture-placeholder').style.display = 'none';
+    document.getElementById('btn-snap').disabled = false;
+    document.getElementById('capture-status').textContent = 'Камера включена. Сделайте снимок лица.';
+    await loadModels();
+  } catch (error) {
+    toast('Не удалось открыть камеру', 'danger');
+  }
+}
+
+function stopRegisterCamera() {
+  if (registerStream) {
+    registerStream.getTracks().forEach((track) => track.stop());
+    registerStream = null;
+  }
+}
+
+async function loadModels() {
+  const model = state.settings.recognitionModel === 'ssd' ? 'ssd' : 'tiny';
+  if (modelsLoadedFor === model) return true;
+  if (!window.faceapi) {
+    toast('Модуль распознавания ещё загружается', 'danger');
+    return false;
+  }
+  document.getElementById('capture-status').textContent = model === 'ssd'
+    ? 'Загрузка точной модели...'
+    : 'Загрузка быстрой модели...';
+  const tasks = [
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),
+    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  ];
+  if (model === 'ssd') tasks.push(faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL));
+  else tasks.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL));
+  await Promise.all(tasks);
+  modelsLoadedFor = model;
+  return true;
+}
+
+function detectorOptions() {
+  return state.settings.recognitionModel === 'ssd'
+    ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+    : new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.45 });
+}
+
+async function snapFace() {
+  const video = document.getElementById('video-register');
+  if (video.readyState < 2) {
+    toast('Камера ещё не готова', 'danger');
+    return;
+  }
+  const canvas = document.getElementById('canvas-register');
+  const maxWidth = 480;
+  const ratio = video.videoWidth ? Math.min(1, maxWidth / video.videoWidth) : 1;
+  canvas.width = Math.round((video.videoWidth || 640) * ratio);
+  canvas.height = Math.round((video.videoHeight || 480) * ratio);
+  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+  const photo = canvas.toDataURL('image/jpeg', 0.78);
+  await analyzeCanvas(canvas, photo);
+}
+
+async function loadPhotoFromFile(event) {
+  const file = event.target.files?.[0];
+  event.target.value = '';
+  if (!file) return;
+  try {
+    const { canvas, photo } = await imageFileToCanvas(file);
+    await analyzeCanvas(canvas, photo);
+  } catch (error) {
+    toast('Не удалось прочитать фото', 'danger');
+  }
+}
+
+function imageFileToCanvas(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = reject;
+      image.onload = () => {
+        const canvas = document.getElementById('canvas-register');
+        const maxSize = 480;
+        const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+        canvas.width = Math.round(image.width * ratio);
+        canvas.height = Math.round(image.height * ratio);
+        canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve({ canvas, photo: canvas.toDataURL('image/jpeg', 0.78) });
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function analyzeCanvas(canvas, photo) {
+  if (!(await loadModels())) return;
+  document.getElementById('capture-status').textContent = 'Анализ лица...';
+  const detection = await faceapi
+    .detectSingleFace(canvas, detectorOptions())
+    .withFaceLandmarks(true)
+    .withFaceDescriptor();
+  if (!detection) {
+    capturedDescriptor = null;
+    capturedPhoto = null;
+    document.getElementById('capture-status').textContent = 'Лицо не найдено. Попробуйте другое фото.';
+    toast('Лицо не найдено', 'danger');
+    return;
+  }
+  capturedDescriptor = Array.from(detection.descriptor);
+  capturedPhoto = photo;
+  stopRegisterCamera();
+  const img = document.getElementById('capture-img');
+  img.src = capturedPhoto;
+  img.style.display = 'block';
+  document.getElementById('video-register').style.display = 'none';
+  document.getElementById('capture-placeholder').style.display = 'none';
+  document.getElementById('btn-snap').disabled = true;
+  document.getElementById('capture-status').textContent = 'Лицо зарегистрировано. Можно сохранять сотрудника.';
+  toast('Фото распознано', 'ok');
+}
+
+async function saveEmployee() {
+  const fname = document.getElementById('emp-fname').value.trim();
+  const lname = document.getElementById('emp-lname').value.trim();
+  if (!fname || !lname) {
+    toast('Введите имя и фамилию', 'danger');
+    return;
+  }
+  const employee = {
+    id: editingEmployeeId || 'e' + Date.now(),
+    fname,
+    lname,
+    iin: document.getElementById('emp-iin').value.trim(),
+    position: document.getElementById('emp-position').value.trim() || 'Сотрудник',
+    dept: document.getElementById('emp-dept').value.trim() || 'Общий',
+    workStart: scheduleById(document.getElementById('emp-schedule').value)?.start || '09:00',
+    scheduleId: document.getElementById('emp-schedule').value || '',
+    photo: capturedPhoto,
+    descriptor: capturedDescriptor,
+    consent: document.getElementById('emp-consent').checked
+      ? { granted: true, version: 'privacy-20260924.1', grantedAt: new Date().toISOString() }
+      : null,
+  };
+  const wasEditing = Boolean(editingEmployeeId);
+  try {
+    await Store.post('saveEmployee', { employee });
+  } catch (error) {
+    toast(error.message || 'Не удалось сохранить сотрудника', 'danger');
+    return;
+  }
+  closeEmployeeModal();
+  toast(wasEditing ? 'Сотрудник обновлён' : 'Сотрудник добавлен', 'ok');
+  switchPage('employees');
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Удалить сотрудника? Отметки в табеле останутся.')) return;
+  try {
+    await Store.post('deleteEmployee', { id });
+  } catch (error) {
+    toast(error.message || 'Не удалось удалить сотрудника', 'danger');
+    return;
+  }
+  toast('Сотрудник удалён', 'ok');
+}
+
+async function clearLogs() {
+  if (!confirm('Удалить все отметки прихода и ухода?')) return;
+  try {
+    await Store.post('clearLogs', {});
+  } catch (error) {
+    toast(error.message || 'Не удалось очистить отметки', 'danger');
+    return;
+  }
+  toast('Отметки очищены', 'ok');
+}
+
+let tabletAccessCountdownTimer = null;
+
+// The QR library loads with `defer`, so it may not be ready the instant the
+// modal opens — poll briefly instead of failing on the first check.
+function waitForQRCodeLib(timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    if (window.QRCode) { resolve(window.QRCode); return; }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      if (window.QRCode) {
+        clearInterval(interval);
+        resolve(window.QRCode);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(interval);
+        resolve(null);
+      }
+    }, 100);
+  });
+}
+
+async function openTabletAccessModal() {
+  document.getElementById('tablet-access-modal').classList.add('open');
+  if (window.lucide) window.lucide.createIcons();
+  await regenerateTabletAccess();
+}
+
+function formatDeviceDate(value) {
+  if (!value) return 'нет данных';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'нет данных' : date.toLocaleString('ru-RU');
+}
+
+function renderTabletDevices(devices = []) {
+  const list = document.getElementById('tablet-devices-list');
+  list.replaceChildren();
+  if (!devices.length) {
+    const empty = document.createElement('div');
+    empty.className = 'hint';
+    empty.textContent = 'Нет активных планшетов';
+    list.appendChild(empty);
+    return;
+  }
+  devices.forEach((device, index) => {
+    const row = document.createElement('div');
+    row.className = 'person-row';
+    const copy = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = `Планшет ${index + 1}`;
+    const meta = document.createElement('div');
+    meta.className = 'hint';
+    meta.textContent = `Привязан: ${formatDeviceDate(device.createdAt)} · Последняя активность: ${formatDeviceDate(device.lastSeenAt)}`;
+    copy.append(title, meta);
+    const button = document.createElement('button');
+    button.className = 'btn danger small';
+    button.type = 'button';
+    button.textContent = 'Отозвать';
+    button.addEventListener('click', () => revokeTabletDevice(device.id));
+    row.append(copy, button);
+    list.appendChild(row);
+  });
+}
+
+async function loadTabletDevices() {
+  try {
+    const data = await Store.post('listTabletDevices', {});
+    renderTabletDevices(data?.devices || []);
+  } catch (error) {
+    toast(error.message || 'Не удалось загрузить список планшетов', 'danger');
+  }
+}
+
+async function revokeTabletDevice(deviceId) {
+  if (!deviceId || !window.confirm('Отозвать доступ этого планшета?')) return;
+  try {
+    const data = await Store.post('revokeTabletDevice', { deviceId });
+    renderTabletDevices(data?.devices || []);
+    toast('Доступ планшета отозван', 'ok');
+  } catch (error) {
+    toast(error.message || 'Не удалось отозвать планшет', 'danger');
+  }
+}
+
+async function revokeAllTabletDevices() {
+  if (!window.confirm('Отозвать доступ всех планшетов? Их потребуется привязать заново.')) return;
+  try {
+    await Store.post('revokeAllTabletDevices', {});
+    renderTabletDevices([]);
+    toast('Доступ всех планшетов отозван', 'ok');
+  } catch (error) {
+    toast(error.message || 'Не удалось отозвать планшеты', 'danger');
+  }
+}
+
+function closeTabletAccessModal() {
+  document.getElementById('tablet-access-modal').classList.remove('open');
+  if (tabletAccessCountdownTimer) clearInterval(tabletAccessCountdownTimer);
+  tabletAccessCountdownTimer = null;
+}
+
+async function regenerateTabletAccess() {
+  const wrap = document.getElementById('tablet-qr-canvas-wrap');
+  const countdownEl = document.getElementById('tablet-access-countdown');
+  const urlEl = document.getElementById('tablet-access-url');
+  wrap.innerHTML = '';
+  countdownEl.textContent = 'Создаём…';
+  urlEl.textContent = '';
+
+  let data;
+  try {
+    data = await Store.post('requestTabletAccess', {});
+  } catch (error) {
+    toast(error.message || 'Не удалось создать QR-код', 'danger');
+    closeTabletAccessModal();
+    return;
+  }
+  if (!data?.token) {
+    toast('Не удалось создать QR-код', 'danger');
+    return;
+  }
+
+  const url = `${location.origin}${location.pathname.replace('admin.html', 'tablet.html')}?c=${encodeURIComponent(SLUG)}&token=${encodeURIComponent(data.token)}`;
+  urlEl.textContent = url;
+
+  const qrLib = await waitForQRCodeLib();
+  if (qrLib) {
+    const canvas = document.createElement('canvas');
+    wrap.appendChild(canvas);
+    qrLib.toCanvas(canvas, url, { width: 240, margin: 1 }, (err) => {
+      if (err) wrap.innerHTML = '<div class="hint">Не удалось отрисовать QR-код</div>';
+    });
+  } else {
+    wrap.innerHTML = '<div class="hint">Библиотека QR-кода не загрузилась — используйте ссылку ниже</div>';
+  }
+
+  if (tabletAccessCountdownTimer) clearInterval(tabletAccessCountdownTimer);
+  const expiresAt = Date.now() + (Number(data.expiresInSeconds) || 60) * 1000;
+  const tick = () => {
+    const remaining = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+    const mm = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const ss = String(remaining % 60).padStart(2, '0');
+    countdownEl.textContent = remaining > 0 ? `Действует ${mm}:${ss}` : 'Срок действия истёк — создайте новый';
+    countdownEl.style.color = remaining <= 60 ? '#e5484d' : '';
+    if (remaining <= 0) clearInterval(tabletAccessCountdownTimer);
+  };
+  tick();
+  tabletAccessCountdownTimer = setInterval(tick, 1000);
+}
+
+function openDeleteCompanyModal() {
+  document.getElementById('delete-company-modal').classList.add('open');
+  document.getElementById('delete-company-slug-label').textContent = SLUG;
+  document.getElementById('delete-company-pin').value = '';
+  document.getElementById('delete-company-slug').value = '';
+  updateDeleteCompanyButton();
+  setTimeout(() => document.getElementById('delete-company-pin')?.focus(), 0);
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function closeDeleteCompanyModal() {
+  document.getElementById('delete-company-modal').classList.remove('open');
+}
+
+function updateDeleteCompanyButton() {
+  const typedSlug = document.getElementById('delete-company-slug').value.trim();
+  document.getElementById('delete-company-confirm').disabled = typedSlug !== SLUG;
+}
+
+async function deleteCompany() {
+  const pin = document.getElementById('delete-company-pin').value.trim();
+  const confirmSlug = document.getElementById('delete-company-slug').value.trim();
+  if (!pin) {
+    toast('Введите PIN админки', 'danger');
+    return;
+  }
+  if (confirmSlug !== SLUG) {
+    toast('Введите идентификатор компании точно как показано', 'danger');
+    return;
+  }
+
+  try {
+    await Store.post('deleteCompany', { confirmSlug, adminPin: pin });
+  } catch (error) {
+    toast(error.message || 'Не удалось удалить компанию', 'danger');
+    return;
+  }
+
+  localStorage.removeItem(STORE_KEY);
+  try {
+    localStorage.removeItem('timetrack_last_company_slug');
+    localStorage.removeItem('timetrack_last_admin_url');
+    localStorage.removeItem('timetrack_last_company_input');
+  } catch (_) {}
+  toast('Компания удалена', 'ok');
+  setTimeout(() => location.replace('index.html'), 700);
+}
+
+function exportTimesheet() {
+  const result = timesheetRowsForExport();
+  if (!result) return;
+  // Pass the complete export payload so XLSX receives merges, weekend
+  // metadata, and the template styling path together with the rows.
+  downloadExport(`timetrack_tabel_${stamp()}`, result, 'Табель');
+  toast('Табель выгружен', 'ok');
+}
+
+function exportTimesheetCSV() {
+  const result = timesheetRowsForExport();
+  if (!result) return;
+  downloadCSV(`timetrack_tabel_${stamp()}.csv`, result.rows);
+  toast('Табель выгружен', 'ok');
+}
+
+function timesheetRowsForExport() {
+  const fromVal = document.getElementById('filter-from').value;
+  const toVal = document.getElementById('filter-to').value;
+
+  if (!fromVal || !toVal) {
+    toast('Выберите период', 'danger');
+    return null;
+  }
+
+  const startDate = new Date(fromVal);
+  const endDate = new Date(toVal);
+
+  if (startDate > endDate) {
+    toast('Неверный период', 'danger');
+    return null;
+  }
+
+  // Generate list of dates in UTC-safe way
+  const dates = [];
+  let curr = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate(), 12, 0, 0);
+  const endLimit = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate(), 12, 0, 0);
+  while (curr <= endLimit) {
+    dates.push(new Date(curr));
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  if (!dates.length) {
+    toast('Нет дат для выгрузки', 'danger');
+    return null;
+  }
+
+  const logs = filteredLogs();
+  const aggregated = aggregateTimesheet(logs);
+
+  const hoursMap = new Map();
+  const presentMap = new Map();
+
+  aggregated.forEach((row) => {
+    const key = `${row.empId}|${row.date}`;
+    const hrs = Number(row.hours) || 0;
+    hoursMap.set(key, (hoursMap.get(key) || 0) + hrs);
+    presentMap.set(key, true);
+  });
+
+  const totalHoursMap = new Map();
+  hoursMap.forEach((hours, key) => {
+    const separator = key.lastIndexOf('|');
+    const empId = separator >= 0 ? key.slice(0, separator) : key;
+    totalHoursMap.set(empId, (totalHoursMap.get(empId) || 0) + Math.round(Number(hours) || 0));
+  });
+
+  const loggedEmpIds = new Set(logs.map((l) => l.empId).filter(Boolean));
+  const empMap = new Map();
+
+  state.employees.forEach((emp) => {
+    empMap.set(emp.id, {
+      id: emp.id,
+      fname: emp.fname || '',
+      lname: emp.lname || '',
+      iin: emp.iin || '',
+      isDeleted: false,
+    });
+  });
+
+  logs.forEach((log) => {
+    if (log.empId && !empMap.has(log.empId)) {
+      const parts = (log.empName || '').trim().split(' ');
+      const fname = parts[0] || log.empName || 'Сотрудник';
+      const lname = parts.slice(1).join(' ') || '(удалён)';
+      empMap.set(log.empId, {
+        id: log.empId,
+        fname: fname,
+        lname: lname,
+        iin: log.empIin || '',
+        isDeleted: true,
+      });
+    }
+  });
+
+  let empsToExport = Array.from(empMap.values());
+  const empFilter = document.getElementById('filter-employee').value;
+
+  if (empFilter) {
+    empsToExport = empsToExport.filter((e) => e.id === empFilter);
+  } else {
+    empsToExport = empsToExport.filter((e) => !e.isDeleted || loggedEmpIds.has(e.id));
+  }
+
+  const sortedEmps = empsToExport.slice().sort((a, b) => {
+    const nameA = `${a.lname || ''} ${a.fname || ''}`.trim().toLowerCase();
+    const nameB = `${b.lname || ''} ${b.fname || ''}`.trim().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+
+  if (!sortedEmps.length) {
+    toast('Нет сотрудников для выгрузки', 'danger');
+    return null;
+  }
+
+  // Group dates by month for headers
+  const getMonthName = (monthKey) => {
+    const [year, month] = monthKey.split('-').map(Number);
+    const months = [
+      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+    ];
+    return months[month];
+  };
+
+  const monthRanges = [];
+  let currentMonth = null;
+  let currentStart = 3; // D is index 3 (after №, ФИО, ИИН)
+
+  dates.forEach((d, index) => {
+    const m = d.getMonth();
+    const y = d.getFullYear();
+    const monthKey = `${y}-${m}`;
+    if (currentMonth !== monthKey) {
+      if (currentMonth !== null) {
+        monthRanges.push({
+          name: getMonthName(currentMonth),
+          start: currentStart,
+          end: 3 + index - 1,
+        });
+      }
+      currentMonth = monthKey;
+      currentStart = 3 + index;
+    }
+  });
+  if (currentMonth !== null) {
+    monthRanges.push({
+      name: getMonthName(currentMonth),
+      start: currentStart,
+      end: 3 + dates.length - 1,
+    });
+  }
+
+  // Row 0: Month names and totals
+  const row0 = ['№', 'ФИО', 'ИИН'];
+  for (let i = 0; i < dates.length; i++) {
+    row0.push('');
+  }
+  monthRanges.forEach((range) => {
+    row0[range.start] = range.name;
+  });
+  row0.push('Дни явок', 'Дни неявок', 'Рабочие дни', 'Итого часов');
+
+  // Row 1: Day numbers
+  const row1 = ['', '', ''];
+  dates.forEach((d) => {
+    row1.push(d.getDate());
+  });
+  row1.push('', '', '', '');
+
+  const exportRows = [row0, row1];
+
+  sortedEmps.forEach((emp, empIndex) => {
+    const empRow = [empIndex + 1, `${emp.lname || ''} ${emp.fname || ''}`.trim(), emp.iin || ''];
+    let presentCount = 0;
+    let absentCount = 0;
+
+    dates.forEach((d) => {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${yyyy}-${mm}-${dd}`;
+      const key = `${emp.id}|${dateStr}`;
+      const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+
+      if (presentMap.has(key)) {
+        const hrs = hoursMap.get(key) || 0;
+        empRow.push(Math.round(hrs));
+        presentCount++;
+      } else {
+        if (isWeekend) {
+          empRow.push('В');
+        } else {
+          empRow.push('');
+          absentCount++;
+        }
+      }
+    });
+
+    empRow.push(
+      presentCount,
+      absentCount,
+      presentCount + absentCount,
+      Math.round(totalHoursMap.get(emp.id) || 0),
+    );
+    exportRows.push(empRow);
+  });
+
+  // Merges configuration
+  const merges = [
+    { s: { r: 0, c: 0 }, e: { r: 1, c: 0 } }, // №
+    { s: { r: 0, c: 1 }, e: { r: 1, c: 1 } }, // ФИО
+    { s: { r: 0, c: 2 }, e: { r: 1, c: 2 } }, // ИИН
+  ];
+  monthRanges.forEach((range) => {
+    merges.push({ s: { r: 0, c: range.start }, e: { r: 0, c: range.end } });
+  });
+  const startOfTotals = 3 + dates.length;
+  merges.push(
+    { s: { r: 0, c: startOfTotals }, e: { r: 1, c: startOfTotals } },
+    { s: { r: 0, c: startOfTotals + 1 }, e: { r: 1, c: startOfTotals + 1 } },
+    { s: { r: 0, c: startOfTotals + 2 }, e: { r: 1, c: startOfTotals + 2 } },
+    { s: { r: 0, c: startOfTotals + 3 }, e: { r: 1, c: startOfTotals + 3 } },
+  );
+
+  return {
+    rows: exportRows,
+    merges,
+    empCount: sortedEmps.length,
+    weekendColumns: dates.map((date, index) => (
+      date.getDay() === 0 || date.getDay() === 6 ? index : null
+    )).filter((index) => index !== null),
+  };
+}
+
+function exportMarks() {
+  const result = marksRowsForExport();
+  if (!result) return;
+  downloadExport(`timetrack_marks_${stamp()}`, result, 'Отметки (упрощено)');
+  toast('Отметки выгружены', 'ok');
+}
+
+function exportMarksCSV() {
+  const result = marksRowsForExport();
+  if (!result) return;
+  downloadCSV(`timetrack_marks_${stamp()}.csv`, result.rows);
+  toast('Отметки выгружены', 'ok');
+}
+
+function marksRowsForExport() {
+  const logs = filteredLogs().slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+  if (!logs.length) {
+    toast('Нет отметок для выгрузки', 'danger');
+    return null;
+  }
+
+  // The first sheet is the compact daily view from the supplied reference:
+  // one row per employee/day with the first arrival and last departure.
+  const groups = new Map();
+  logs.forEach((log, index) => {
+    const date = localDateKey(log) || String(log.date || '');
+    const employeeKey = log.empId || `name:${log.empName || 'Сотрудник'}`;
+    const key = `${employeeKey}|${date}`;
+    if (!groups.has(key)) {
+      groups.set(key, {
+        date,
+        empId: log.empId || '',
+        name: marksEmployeeName(log),
+        logs: [],
+        firstIndex: index,
+      });
+    }
+    groups.get(key).logs.push(log);
+  });
+
+  const employeeOrder = new Map(state.employees.map((emp, index) => [emp.id, index]));
+  const timestamp = (log) => {
+    const value = new Date(log.ts).getTime();
+    return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
+  };
+  const sortByTimestamp = (a, b) => timestamp(a) - timestamp(b);
+
+  const summaryRows = [['Дата', 'Сотрудник', 'Приход', 'Уход', 'Опоздание', 'Примечание']];
+  Array.from(groups.values())
+    .sort((a, b) => (
+      String(a.date).localeCompare(String(b.date)) ||
+      (employeeOrder.get(a.empId) ?? Number.MAX_SAFE_INTEGER) - (employeeOrder.get(b.empId) ?? Number.MAX_SAFE_INTEGER) ||
+      String(a.name || '').localeCompare(String(b.name || '')) ||
+      a.firstIndex - b.firstIndex
+    ))
+    .forEach((group) => {
+      const checkins = group.logs.filter((log) => log.type === 'checkin').sort(sortByTimestamp);
+      const checkouts = group.logs.filter((log) => log.type === 'checkout').sort(sortByTimestamp);
+      const notes = [];
+      if (checkins.length > 1) notes.push(`${checkins.length} отметок прихода`);
+      if (checkouts.length > 1) notes.push(`${checkouts.length} отметок ухода`);
+      const date = group.date.match(/^\d{4}-\d{2}-\d{2}$/) ? formatDate(group.date) : group.date;
+
+      summaryRows.push([
+        date,
+        group.name,
+        checkins[0]?.time || '',
+        checkouts[checkouts.length - 1]?.time || '',
+        checkins.some((log) => log.isLate) ? 'Да' : 'Нет',
+        notes.join('; '),
+      ]);
+    });
+
+  // Keep the full event-level data on the second sheet, as in the reference
+  // workbook, and use the compact rows for CSV because CSV has no worksheets.
+  const rawRows = [['Дата', 'Время', 'Сотрудник', 'Тип', 'Опоздание', 'Проверка', 'Ручной ввод', 'Фото']];
+  logs.forEach((log) => {
+    const manual = isManualLog(log);
+    rawRows.push([
+      log.date || (localDateKey(log) ? formatDate(localDateKey(log)) : ''),
+      log.time,
+      log.empName,
+      log.type === 'checkin' ? 'Приход' : 'Уход',
+      log.isLate ? 'Да' : 'Нет',
+      manual ? 'Ручной ввод' : (log.verification ? verificationLabel(log.verification) : ''),
+      manual ? 'Да' : 'Нет',
+      log.manualPhoto || '',
+    ]);
+  });
+  return {
+    rows: summaryRows,
+    secondarySheets: [{ name: 'Исходные данные', rows: rawRows, style: 'marks-raw' }],
+  };
+}
+
+function marksEmployeeName(log) {
+  const emp = employeeById(log.empId);
+  if (emp) return `${emp.lname || ''} ${emp.fname || ''}`.trim();
+  return log.empName || '';
+}
+
+function downloadExport(filenameBase, data, sheetName) {
+  const format = document.getElementById('export-format').value;
+  const rows = data?.rows || data;
+  const merges = data?.merges || null;
+  const weekendColumns = data?.weekendColumns || [];
+  const secondarySheets = data?.secondarySheets || [];
+
+  if (format === 'xlsx') {
+    downloadXLSX(`${filenameBase}.xlsx`, rows, sheetName, merges, weekendColumns, secondarySheets);
+    return;
+  }
+  downloadCSV(`${filenameBase}.csv`, rows);
+}
+
+async function downloadXLSX(filename, rows, sheetName, merges = null, weekendColumns = [], secondarySheets = []) {
+  if (!window.ExcelJS) {
+    toast('ExcelJS ещё загружается, выгружаю CSV', 'danger');
+    downloadCSV(filename.replace(/\.xlsx$/i, '.csv'), rows);
+    return;
+  }
+  try {
+    const workbook = new ExcelJS.Workbook();
+    const ws = workbook.addWorksheet(sheetName);
+
+    // Add all rows
+    rows.forEach((row) => ws.addRow(row));
+
+    if (sheetName === 'Табель' && merges) {
+      const daysCount = rows[1].length - 7;
+      applyTimesheetStylesExcel(ws, rows, daysCount, weekendColumns);
+    } else if (sheetName === 'Отметки (упрощено)') {
+      applyMarksSummaryStylesExcel(ws, rows);
+    } else {
+      // Dynamic widths for other sheets
+      ws.columns = rows[0].map((_, index) => ({
+        width: Math.max(12, ...rows.map((row) => String(row[index] ?? '').length).slice(0, 200)) + 2,
+      }));
+    }
+
+    // Merge after styling. ExcelJS merged cells share style state with the
+    // master cell, so applying the template styles first preserves the
+    // separate top/bottom and left/right borders from the reference file.
+    if (merges) {
+      merges.forEach((m) => {
+        ws.mergeCells(m.s.r + 1, m.s.c + 1, m.e.r + 1, m.e.c + 1);
+      });
+    }
+
+    secondarySheets.forEach((sheet) => {
+      if (!sheet?.name || !Array.isArray(sheet.rows)) return;
+      const secondary = workbook.addWorksheet(sheet.name);
+      sheet.rows.forEach((row) => secondary.addRow(row));
+      if (sheet.style === 'marks-raw') {
+        applyMarksRawStylesExcel(secondary, sheet.rows);
+      } else {
+        secondary.columns = sheet.rows[0].map((_, index) => ({
+          width: Math.max(12, ...sheet.rows.map((row) => String(row[index] ?? '').length).slice(0, 200)) + 2,
+        }));
+      }
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error('XLSX export error:', err);
+    toast('Ошибка экспорта XLSX, выгружаю CSV', 'danger');
+    downloadCSV(filename.replace(/\.xlsx$/i, '.csv'), rows);
+  }
+}
+
+function applyMarksSummaryStylesExcel(ws, rows) {
+  const fill = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  const noFill = { type: 'pattern', pattern: 'none' };
+  const headerFill = fill('FFB9CDE5');
+  const black = { argb: 'FF000000' };
+  const fullBorder = {
+    left: { style: 'thin', color: black },
+    right: { style: 'thin', color: black },
+    top: { style: 'thin', color: black },
+    bottom: { style: 'thin', color: black },
+  };
+  const bodyFont = { name: 'Calibri', size: 11 };
+  const headerFont = { name: 'Calibri', size: 11, bold: true };
+  const leftAligned = { horizontal: 'left', vertical: 'middle', wrapText: true };
+
+  ws.properties.defaultColWidth = 14.44140625;
+  ws.properties.defaultRowHeight = 15;
+  ws.views = [{
+    state: 'frozen',
+    ySplit: 1,
+    topLeftCell: 'A2',
+    showGridLines: false,
+  }];
+  ws.pageSetup = { orientation: 'portrait', fitToHeight: 0 };
+  ws.pageMargins = { left: 0.75, right: 0.75, top: 1, bottom: 1, header: 0, footer: 0 };
+  ws.autoFilter = { from: 'A1', to: `F${rows.length}` };
+
+  [12, 32, 10, 10, 12, 26].forEach((width, index) => {
+    ws.getColumn(index + 1).width = width;
+  });
+
+  rows.forEach((row, rowIndex) => {
+    const excelRow = ws.getRow(rowIndex + 1);
+    excelRow.height = rowIndex === 0 ? 18 : (row[5] ? 28.8 : 14.4);
+    row.forEach((value, colIndex) => {
+      const cell = ws.getCell(rowIndex + 1, colIndex + 1);
+      cell.font = rowIndex === 0
+        ? headerFont
+        : (colIndex === 4 && value === 'Да'
+          ? { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFCC0000' } }
+          : bodyFont);
+      cell.fill = rowIndex === 0 ? headerFill : noFill;
+      cell.border = fullBorder;
+      cell.alignment = leftAligned;
+    });
+  });
+}
+
+function applyMarksRawStylesExcel(ws, rows) {
+  const fill = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  const noFill = { type: 'pattern', pattern: 'none' };
+  const headerFill = fill('FFBFBFBF');
+  const headerFont = { name: 'Calibri', size: 11, bold: true };
+  const bodyFont = { name: 'Calibri', size: 11 };
+  const centered = { horizontal: 'center', vertical: 'middle' };
+
+  ws.properties.defaultColWidth = 14.44140625;
+  ws.properties.defaultRowHeight = 15;
+  ws.views = [{
+    state: 'frozen',
+    ySplit: 1,
+    topLeftCell: 'A2',
+    showGridLines: false,
+  }];
+  ws.pageSetup = { orientation: 'landscape' };
+  ws.pageMargins = { left: 0.7, right: 0.7, top: 0.75, bottom: 0.75, header: 0, footer: 0 };
+  [14, 14, 19, 14, 14, 16, 14, 14].forEach((width, index) => {
+    ws.getColumn(index + 1).width = width;
+  });
+
+  rows.forEach((row, rowIndex) => {
+    const excelRow = ws.getRow(rowIndex + 1);
+    excelRow.height = 14.4;
+    row.forEach((_, colIndex) => {
+      const cell = ws.getCell(rowIndex + 1, colIndex + 1);
+      cell.font = rowIndex === 0 ? headerFont : bodyFont;
+      cell.fill = rowIndex === 0 ? headerFill : noFill;
+      cell.alignment = rowIndex === 0 ? centered : undefined;
+    });
+  });
+}
+
+function applyTimesheetStylesExcel(ws, rows, daysCount, weekendColumns = []) {
+  // These are the resolved colors from the supplied Excel template. Using
+  // explicit RGB values keeps the result identical even when Excel's theme
+  // differs between machines.
+  const fill = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  const noFill = { type: 'pattern', pattern: 'none' };
+  const monthHeaderFill = fill('FFDCE6F2');
+  const dayHeaderFill = fill('FFB9CDE5');
+  const weekendFill = fill('FFB9CDE5');
+  const totalFills = [
+    fill('FFEBF2DE'), // Дни явок
+    fill('FFF2DCDC'), // Дни неявок
+    fill('FFFDEADB'), // Рабочие дни
+    fill('FFDCE6F2'), // Итого часов — the added total column
+  ];
+
+  const black = { argb: 'FF000000' };
+  const border = (left, right, top, bottom) => ({
+    left: left ? { style: 'thin', color: black } : undefined,
+    right: right ? { style: 'thin', color: black } : undefined,
+    top: top ? { style: 'thin', color: black } : undefined,
+    bottom: bottom ? { style: 'thin', color: black } : undefined,
+  });
+  const fullBorder = border(true, true, true, true);
+  const verticalHeaderTopBorder = border(true, true, true, false);
+  const verticalHeaderBottomBorder = border(true, true, false, true);
+  const monthStartBorder = border(true, false, true, true);
+  const monthMiddleBorder = border(false, false, true, true);
+  const monthEndBorder = border(false, true, true, true);
+
+  const bodyFont = { name: 'Calibri', size: 11 };
+  const headerFont = { name: 'Calibri', size: 11, bold: true };
+  const centered = { horizontal: 'center', vertical: 'middle' };
+  const leftAligned = { horizontal: 'left', vertical: 'middle' };
+
+  const totalColsStart = 3 + daysCount; // 0-indexed
+  const totalCols = rows[0].length;
+  const weekendSet = new Set(weekendColumns);
+
+  // Match the template's dimensions and view settings.
+  ws.properties.defaultColWidth = 14.44140625;
+  ws.properties.defaultRowHeight = 15;
+  ws.views = [{
+    state: 'frozen',
+    xSplit: 3,
+    ySplit: 2,
+    topLeftCell: 'D3',
+    showGridLines: false,
+  }];
+  ws.pageSetup = { orientation: 'landscape', fitToHeight: 0 };
+
+  ws.getColumn(1).width = 4;
+  ws.getColumn(2).width = 32;
+  for (let c = 3; c <= totalCols; c++) {
+    ws.getColumn(c).width = 14;
+  }
+  for (let r = 1; r <= rows.length; r++) {
+    ws.getRow(r).height = r <= 2 ? 18 : 15.75;
+  }
+
+  // The source template styles each part of a merged month header separately:
+  // left edge, interior cells, and right edge. Infer those ranges from row 1.
+  const monthRanges = [];
+  let monthStart = 3;
+  for (let c = 4; c <= totalColsStart; c++) {
+    if (c === totalColsStart || rows[0][c] !== '') {
+      monthRanges.push({ start: monthStart, end: c - 1 });
+      monthStart = c;
+    }
+  }
+
+  // Base body style: white cells, black thin grid, Calibri 11. Weekend cells
+  // are overridden below to match the blue/bold cells from the template.
+  for (let r = 0; r < rows.length; r++) {
+    for (let c = 0; c < totalCols; c++) {
+      const cell = ws.getCell(r + 1, c + 1);
+      cell.font = bodyFont;
+      cell.fill = noFill;
+      cell.border = fullBorder;
+      cell.alignment = c === 1 ? leftAligned : centered;
+    }
+  }
+
+  // A:C are vertically merged headers. The master cell has only the top
+  // border; the merged bottom cell carries the bottom border.
+  for (let c = 0; c < 3; c++) {
+    const master = ws.getCell(1, c + 1);
+    const bottom = ws.getCell(2, c + 1);
+    master.font = headerFont;
+    master.alignment = centered;
+    master.border = verticalHeaderTopBorder;
+    bottom.font = bodyFont;
+    bottom.alignment = undefined;
+    bottom.border = verticalHeaderBottomBorder;
+  }
+
+  // Month band and day-number row.
+  monthRanges.forEach(({ start, end }) => {
+    for (let c = start; c <= end; c++) {
+      const cell = ws.getCell(1, c + 1);
+      cell.fill = monthHeaderFill;
+      cell.alignment = undefined;
+      if (start === end) {
+        cell.font = headerFont;
+        cell.alignment = centered;
+        cell.border = fullBorder;
+      } else if (c === start) {
+        cell.font = headerFont;
+        cell.alignment = centered;
+        cell.border = monthStartBorder;
+      } else if (c === end) {
+        cell.font = bodyFont;
+        cell.border = monthEndBorder;
+      } else {
+        cell.font = bodyFont;
+        cell.border = monthMiddleBorder;
+      }
+    }
+  });
+  for (let c = 3; c < totalColsStart; c++) {
+    const cell = ws.getCell(2, c + 1);
+    cell.font = headerFont;
+    cell.fill = dayHeaderFill;
+    cell.alignment = undefined;
+    cell.border = fullBorder;
+  }
+
+  // The three original totals keep their template colors. The fourth one is
+  // the requested hours total and uses the matching light-blue accent.
+  for (let c = totalColsStart; c < totalCols; c++) {
+    const totalIndex = c - totalColsStart;
+    const master = ws.getCell(1, c + 1);
+    const bottom = ws.getCell(2, c + 1);
+    const totalFill = totalFills[totalIndex] || totalFills[totalFills.length - 1];
+    master.font = headerFont;
+    master.fill = totalFill;
+    master.alignment = centered;
+    master.border = verticalHeaderTopBorder;
+    bottom.font = bodyFont;
+    bottom.fill = totalFill;
+    bottom.alignment = undefined;
+    bottom.border = verticalHeaderBottomBorder;
+  }
+
+  // Apply the blue weekend fill and bold font only to actual employee rows.
+  for (let r = 2; r < rows.length; r++) {
+    weekendSet.forEach((dayIndex) => {
+      const c = 3 + dayIndex;
+      if (c >= 3 && c < totalColsStart) {
+        const cell = ws.getCell(r + 1, c + 1);
+        cell.font = headerFont;
+        cell.fill = weekendFill;
+        cell.alignment = undefined;
+        cell.border = fullBorder;
+      }
+    });
+  }
+}
+
+function downloadCSV(filename, rows) {
+  const csv = rows.map((row) => row.map(csvCell).join(';')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function csvCell(value) {
+  const text = String(value ?? '');
+  return /[;"\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+}
+
+function stamp() {
+  return new Date().toLocaleDateString('ru-RU').replace(/\./g, '_');
+}
+
+function toast(message, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const node = document.createElement('div');
+  node.className = 'toast ' + type;
+  node.textContent = message;
+  wrap.appendChild(node);
+  setTimeout(() => node.remove(), 3600);
+}
+
+function initFilters() {
+  const today = new Date();
+  const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+  document.getElementById('filter-from').value = [
+    firstDay.getFullYear(),
+    String(firstDay.getMonth() + 1).padStart(2, '0'),
+    '01',
+  ].join('-');
+  document.getElementById('filter-to').value = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+async function loadCompanyInfo() {
+  try {
+    const res = await fetch(API + 'companyInfo', { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok && data.company?.name) {
+      document.title = `${data.company.name} — админка`;
+    }
+  } catch {}
+}
+
+window.addEventListener('load', async () => {
+  initFilters();
+  await Store.load();
+  await loadCompanyInfo();
+  if (lastLoadErrorCode === 'EMAIL_NOT_VERIFIED') {
+    showEmailNotVerified();
+  } else if (new URLSearchParams(location.search).get('reset')) {
+    checkResetTokenInUrl();
+  } else {
+    await verifyAdminAccess();
+  }
+  setInterval(() => Store.load(), 30000);
+  if (window.lucide) window.lucide.createIcons();
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    navigator.serviceWorker.register('sw.js', { scope: './' }).catch(() => {});
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1558 @@
+openapi: 3.0.3
+info:
+  title: Timetrack.kz API
+  description: |
+    REST API для сервиса учёта рабочего времени Timetrack.kz.
+
+    ## Аутентификация
+    Все защищённые эндпоинты требуют передачи заголовка `Authorization: Bearer <token>`.
+    Токен получается через `POST /api/auth/login`.
+
+    ## Часовой пояс
+    Все datetime-поля в ISO 8601 с явным offset, например: `2026-06-16T09:02:00+05:00`
+
+    ## Версионирование
+    Текущая версия: v1. Базовый URL: `https://api.timetrack.kz/v1`
+  version: "1.0.0"
+  contact:
+    name: Timetrack.kz Support
+    url: https://timetrack.kz
+    email: support@timetrack.kz
+
+servers:
+  - url: https://api.timetrack.kz/v1
+    description: Production
+  - url: https://staging.api.timetrack.kz/v1
+    description: Staging
+  - url: http://localhost:3000/api
+    description: Local development (Next.js mock)
+
+tags:
+  - name: auth
+    description: Авторизация и управление сессиями
+  - name: company
+    description: Настройки компании
+  - name: employees
+    description: Управление сотрудниками
+  - name: locations
+    description: Рабочие локации и геозоны
+  - name: schedules
+    description: Графики работы
+  - name: attendance
+    description: Отметки прихода/ухода
+  - name: reports
+    description: Отчёты и экспорт
+  - name: leave-requests
+    description: Заявки на отпуск/больничный
+  - name: files
+    description: Загрузка и получение файлов
+
+# ─────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────
+paths:
+
+  # AUTH ──────────────────────────────────────
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Вход в систему
+      description: Возвращает access token и refresh token. Используется как веб-панелью, так и мобильным приложением.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: admin@timetrack.kz
+              password: password
+      responses:
+        '200':
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Обновить access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        '200':
+          description: Новый access token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: Выход из системы
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Успешный выход
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Получить текущего пользователя
+      description: Используется мобильным приложением для проверки токена и получения профиля.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthUser'
+
+  # COMPANY ───────────────────────────────────
+  /company:
+    get:
+      tags: [company]
+      summary: Получить информацию о компании
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные компании
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+
+    patch:
+      tags: [company]
+      summary: Обновить настройки компании
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompanyUpdateRequest'
+      responses:
+        '200':
+          description: Обновлённые данные компании
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Company'
+
+  # EMPLOYEES ─────────────────────────────────
+  /employees:
+    get:
+      tags: [employees]
+      summary: Список сотрудников
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 25 }
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Поиск по имени, email, коду
+        - name: departmentId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, inactive]
+        - name: workScheduleId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Paginated list of employees
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeListResponse'
+
+    post:
+      tags: [employees]
+      summary: Создать сотрудника
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeCreateRequest'
+      responses:
+        '201':
+          description: Созданный сотрудник
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+
+  /employees/import:
+    post:
+      tags: [employees]
+      summary: Импорт сотрудников из Excel
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Результат импорта
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  imported:
+                    type: integer
+                  skipped:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: string
+
+  /employees/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [employees]
+      summary: Получить сотрудника
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Данные сотрудника
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags: [employees]
+      summary: Обновить сотрудника
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeUpdateRequest'
+      responses:
+        '200':
+          description: Обновлённый сотрудник
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+
+    delete:
+      tags: [employees]
+      summary: Удалить / деактивировать сотрудника
+      description: Реализуется как soft delete — status меняется на inactive
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Успешно деактивирован
+
+  # LOCATIONS ─────────────────────────────────
+  /locations:
+    get:
+      tags: [locations]
+      summary: Список локаций
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+      responses:
+        '200':
+          description: Список локаций
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Location'
+
+    post:
+      tags: [locations]
+      summary: Создать локацию
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCreateRequest'
+      responses:
+        '201':
+          description: Созданная локация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+
+  /locations/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    patch:
+      tags: [locations]
+      summary: Обновить локацию
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LocationCreateRequest'
+      responses:
+        '200':
+          description: Обновлённая локация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+
+    delete:
+      tags: [locations]
+      summary: Удалить локацию
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Локация удалена
+
+  # SCHEDULES ─────────────────────────────────
+  /schedules:
+    get:
+      tags: [schedules]
+      summary: Список графиков работы
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список графиков
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WorkSchedule'
+
+    post:
+      tags: [schedules]
+      summary: Создать график
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkScheduleCreateRequest'
+      responses:
+        '201':
+          description: Созданный график
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkSchedule'
+
+  /schedules/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    patch:
+      tags: [schedules]
+      summary: Обновить график
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkScheduleCreateRequest'
+      responses:
+        '200':
+          description: Обновлённый график
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkSchedule'
+
+    delete:
+      tags: [schedules]
+      summary: Удалить график
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Успешно удалён
+
+  # ATTENDANCE ────────────────────────────────
+  /attendance:
+    get:
+      tags: [attendance]
+      summary: Журнал отметок
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 50 }
+        - name: employeeId
+          in: query
+          schema: { type: string }
+        - name: locationId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [OK, LATE, OUT_OF_GEOFENCE, MANUAL_REVIEW]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [CHECK_IN, CHECK_OUT]
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+          example: "2026-06-01"
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+          example: "2026-06-30"
+      responses:
+        '200':
+          description: Paginated attendance records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceListResponse'
+
+  /attendance/today:
+    get:
+      tags: [attendance]
+      summary: Отметки за сегодня
+      description: Используется для дашборда и мобильного приложения (статус сотрудника сегодня)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: employeeId
+          in: query
+          schema: { type: string }
+          description: Если передан — возвращает только отметки этого сотрудника
+      responses:
+        '200':
+          description: Сегодняшние отметки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  records:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AttendanceRecord'
+                  totalPresent:
+                    type: integer
+                  totalLate:
+                    type: integer
+
+  /attendance/check-in:
+    post:
+      tags: [attendance]
+      summary: Зафиксировать приход
+      description: |
+        Основной endpoint для мобильного приложения.
+        Принимает геолокацию, фото (опционально), время устройства.
+        Сервер проверяет геофенс и опоздание, возвращает результат.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInRequest'
+            example:
+              employeeId: emp_001
+              locationId: loc_001
+              type: CHECK_IN
+              markedAt: "2026-06-16T09:02:00+05:00"
+              deviceTime: "2026-06-16T09:02:00+05:00"
+              lat: 51.1282
+              lng: 71.4304
+              accuracyMeters: 12
+              selfieFileId: file_001
+              deviceInfo:
+                platform: android
+                model: Samsung Galaxy A52
+                appVersion: "0.1.0"
+                isMockLocation: false
+              offlineClientId: uuid-from-device
+      responses:
+        '200':
+          description: Результат отметки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckInResponse'
+              example:
+                id: att_001
+                status: OK
+                serverAt: "2026-06-16T09:02:03+05:00"
+                isLate: false
+                lateMinutes: 0
+                geofence:
+                  passed: true
+                  distanceMeters: 24
+                  radiusMeters: 100
+                message: Приход успешно зафиксирован
+        '400':
+          description: Ошибка валидации (уже отмечался, неверные данные)
+        '403':
+          description: Сотрудник не привязан к локации
+
+  /attendance/check-out:
+    post:
+      tags: [attendance]
+      summary: Зафиксировать уход
+      description: Аналогичен check-in, но type=CHECK_OUT
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckInRequest'
+      responses:
+        '200':
+          description: Результат отметки ухода
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckInResponse'
+
+  /attendance/offline-sync:
+    post:
+      tags: [attendance]
+      summary: Синхронизация офлайн-отметок
+      description: |
+        Мобильное приложение накапливает отметки при отсутствии интернета.
+        При восстановлении связи — отправляет пакет для синхронизации.
+        Сервер обрабатывает каждую запись, дедуплицирует по offlineClientId.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                records:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/CheckInRequest'
+                  maxItems: 100
+      responses:
+        '200':
+          description: Результат синхронизации
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  synced:
+                    type: integer
+                  duplicates:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        offlineClientId:
+                          type: string
+                        reason:
+                          type: string
+
+  /attendance/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [attendance]
+      summary: Получить запись отметки
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Запись отметки
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecord'
+
+  # REPORTS ───────────────────────────────────
+  /reports/timesheet:
+    get:
+      tags: [reports]
+      summary: Табель за период
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+          example: 2026
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer, minimum: 1, maximum: 12 }
+          example: 6
+        - name: departmentId
+          in: query
+          schema: { type: string }
+        - name: employeeId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Данные табеля
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimesheetReport'
+
+  /reports/late:
+    get:
+      tags: [reports]
+      summary: Отчёт по опозданиям
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: departmentId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Отчёт по опозданиям
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LateReportRow'
+
+  /reports/overtime:
+    get:
+      tags: [reports]
+      summary: Отчёт по переработкам
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Отчёт по переработкам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OvertimeReportRow'
+
+  /reports/absences:
+    get:
+      tags: [reports]
+      summary: Отчёт по отсутствиям
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Отчёт по отсутствиям
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AbsenceReportRow'
+
+  /reports/export/xlsx:
+    get:
+      tags: [reports]
+      summary: Экспорт табеля в Excel
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: departmentId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Excel файл
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /reports/export/pdf:
+    get:
+      tags: [reports]
+      summary: Экспорт табеля в PDF
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: month
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: PDF файл
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  # LEAVE REQUESTS ────────────────────────────
+  /leave-requests:
+    get:
+      tags: [leave-requests]
+      summary: Список заявок на отпуск
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDING, APPROVED, REJECTED]
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [VACATION, SICK, BUSINESS_TRIP, DAY_OFF]
+        - name: employeeId
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: Список заявок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LeaveRequest'
+
+    post:
+      tags: [leave-requests]
+      summary: Создать заявку
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeaveRequestCreateRequest'
+      responses:
+        '201':
+          description: Созданная заявка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequest'
+
+  /leave-requests/{id}/approve:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    patch:
+      tags: [leave-requests]
+      summary: Одобрить заявку
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Одобренная заявка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequest'
+
+  /leave-requests/{id}/reject:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    patch:
+      tags: [leave-requests]
+      summary: Отклонить заявку
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Отклонённая заявка
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaveRequest'
+
+  # FILES ─────────────────────────────────────
+  /files/selfie:
+    post:
+      tags: [files]
+      summary: Загрузить фото-подтверждение
+      description: |
+        Мобильное приложение загружает selfie перед check-in.
+        Возвращает fileId, который передаётся в check-in payload.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                employeeId:
+                  type: string
+      responses:
+        '200':
+          description: ID загруженного файла
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  url:
+                    type: string
+                  thumbnailUrl:
+                    type: string
+
+  /files/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      tags: [files]
+      summary: Получить файл
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Файл
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+
+# ─────────────────────────────────────────────
+# COMPONENTS
+# ─────────────────────────────────────────────
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Неверный или истёкший токен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    BadRequest:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    # ── AUTH ────────────────────────
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 6
+
+    LoginResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          description: Seconds until expiry
+        user:
+          $ref: '#/components/schemas/AuthUser'
+
+    AuthUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [SUPER_ADMIN, COMPANY_ADMIN, HR, MANAGER, EMPLOYEE]
+        companyId:
+          type: string
+        employeeId:
+          type: string
+          nullable: true
+        avatarUrl:
+          type: string
+          nullable: true
+
+    # ── COMPANY ─────────────────────
+    Company:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        bin:
+          type: string
+        industry:
+          type: string
+        city:
+          type: string
+        timezone:
+          type: string
+          example: Asia/Almaty
+        createdAt:
+          type: string
+          format: date-time
+        plan:
+          type: string
+          enum: [starter, team, business, scale, enterprise]
+        employeeLimit:
+          type: integer
+
+    CompanyUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        industry:
+          type: string
+        city:
+          type: string
+        timezone:
+          type: string
+
+    # ── EMPLOYEE ─────────────────────
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        employeeCode:
+          type: string
+        departmentId:
+          type: string
+        position:
+          type: string
+        managerId:
+          type: string
+          nullable: true
+        workScheduleId:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, inactive]
+        hiredAt:
+          type: string
+          format: date
+        avatarUrl:
+          type: string
+          nullable: true
+        hasFaceTemplate:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    EmployeeCreateRequest:
+      type: object
+      required: [fullName, email, departmentId, position, employeeCode]
+      properties:
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        employeeCode:
+          type: string
+        departmentId:
+          type: string
+        position:
+          type: string
+        managerId:
+          type: string
+        workScheduleId:
+          type: string
+        hiredAt:
+          type: string
+          format: date
+
+    EmployeeUpdateRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+        phone:
+          type: string
+        departmentId:
+          type: string
+        position:
+          type: string
+        workScheduleId:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        managerId:
+          type: string
+
+    EmployeeListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Employee'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    # ── LOCATION ─────────────────────
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        radiusMeters:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    LocationCreateRequest:
+      type: object
+      required: [name, address, lat, lng, radiusMeters]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        radiusMeters:
+          type: integer
+          minimum: 10
+          maximum: 5000
+        isActive:
+          type: boolean
+          default: true
+
+    # ── SCHEDULE ─────────────────────
+    WorkSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        startTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "09:00"
+        endTime:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "18:00"
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 6
+          description: "0=Sunday, 1=Monday, ..., 6=Saturday"
+          example: [1, 2, 3, 4, 5]
+        lateToleranceMinutes:
+          type: integer
+          description: Допуск опоздания в минутах
+        overtimeThresholdMinutes:
+          type: integer
+          description: Порог переработки в минутах
+
+    WorkScheduleCreateRequest:
+      type: object
+      required: [name, startTime, endTime, daysOfWeek]
+      properties:
+        name:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        daysOfWeek:
+          type: array
+          items:
+            type: integer
+        lateToleranceMinutes:
+          type: integer
+          default: 10
+        overtimeThresholdMinutes:
+          type: integer
+          default: 30
+
+    # ── ATTENDANCE ───────────────────
+    AttendanceRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        employeeId:
+          type: string
+        employeeName:
+          type: string
+        type:
+          type: string
+          enum: [CHECK_IN, CHECK_OUT]
+        markedAt:
+          type: string
+          format: date-time
+          description: Время по устройству
+        serverAt:
+          type: string
+          format: date-time
+          description: Время на сервере
+        locationId:
+          type: string
+        locationName:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        accuracyMeters:
+          type: number
+        photoUrl:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [OK, LATE, OUT_OF_GEOFENCE, MANUAL_REVIEW]
+        source:
+          type: string
+          enum: [MOBILE, TABLET, TERMINAL, API]
+        deviceInfo:
+          $ref: '#/components/schemas/DeviceInfo'
+        isOfflineSynced:
+          type: boolean
+
+    AttendanceListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceRecord'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    CheckInRequest:
+      type: object
+      required: [employeeId, locationId, type, markedAt, lat, lng]
+      properties:
+        employeeId:
+          type: string
+        locationId:
+          type: string
+        type:
+          type: string
+          enum: [CHECK_IN, CHECK_OUT]
+        markedAt:
+          type: string
+          format: date-time
+        deviceTime:
+          type: string
+          format: date-time
+        lat:
+          type: number
+        lng:
+          type: number
+        accuracyMeters:
+          type: number
+        selfieFileId:
+          type: string
+          nullable: true
+        deviceInfo:
+          $ref: '#/components/schemas/DeviceInfo'
+        offlineClientId:
+          type: string
+          description: UUID, сгенерированный на устройстве для дедупликации
+
+    CheckInResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [OK, LATE, OUT_OF_GEOFENCE, MANUAL_REVIEW]
+        serverAt:
+          type: string
+          format: date-time
+        isLate:
+          type: boolean
+        lateMinutes:
+          type: integer
+        geofence:
+          type: object
+          properties:
+            passed:
+              type: boolean
+            distanceMeters:
+              type: number
+            radiusMeters:
+              type: number
+        message:
+          type: string
+
+    DeviceInfo:
+      type: object
+      properties:
+        platform:
+          type: string
+          enum: [android, ios, web]
+        model:
+          type: string
+        appVersion:
+          type: string
+        isMockLocation:
+          type: boolean
+
+    # ── REPORTS ──────────────────────
+    TimesheetReport:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              employeeId:
+                type: string
+              employeeName:
+                type: string
+              position:
+                type: string
+              departmentId:
+                type: string
+              totalWorkDays:
+                type: integer
+              lateDays:
+                type: integer
+              absentDays:
+                type: integer
+              totalHours:
+                type: number
+              overtimeHours:
+                type: number
+              days:
+                type: object
+                additionalProperties:
+                  type: object
+                  properties:
+                    checkIn:
+                      type: string
+                      nullable: true
+                    checkOut:
+                      type: string
+                      nullable: true
+                    status:
+                      type: string
+
+    LateReportRow:
+      type: object
+      properties:
+        employeeId:
+          type: string
+        employeeName:
+          type: string
+        lateCount:
+          type: integer
+        totalLateMinutes:
+          type: integer
+        avgLateMinutes:
+          type: number
+
+    OvertimeReportRow:
+      type: object
+      properties:
+        employeeId:
+          type: string
+        employeeName:
+          type: string
+        regularHours:
+          type: number
+        overtimeHours:
+          type: number
+        totalHours:
+          type: number
+
+    AbsenceReportRow:
+      type: object
+      properties:
+        employeeId:
+          type: string
+        employeeName:
+          type: string
+        workDays:
+          type: integer
+        absentDays:
+          type: integer
+        leaveApprovedDays:
+          type: integer
+
+    # ── LEAVE REQUEST ────────────────
+    LeaveRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        employeeId:
+          type: string
+        employeeName:
+          type: string
+        type:
+          type: string
+          enum: [VACATION, SICK, BUSINESS_TRIP, DAY_OFF]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [PENDING, APPROVED, REJECTED]
+        comment:
+          type: string
+          nullable: true
+        rejectionReason:
+          type: string
+          nullable: true
+        approvedById:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    LeaveRequestCreateRequest:
+      type: object
+      required: [employeeId, type, startDate, endDate]
+      properties:
+        employeeId:
+          type: string
+        type:
+          type: string
+          enum: [VACATION, SICK, BUSINESS_TRIP, DAY_OFF]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        comment:
+          type: string
+
+    # ── ERROR ────────────────────────
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        statusCode:
+          type: integer
+
+security:
+  - bearerAuth: []

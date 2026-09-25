@@ -1,0 +1,24 @@
+{
+  "name": "timetrack-prototype",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:admin\" \"npm run dev:mobile\"",
+    "dev:admin": "npm --workspace apps/admin run dev",
+    "dev:mobile": "npm --workspace apps/mobile run start",
+    "build:admin": "npm --workspace apps/admin run build",
+    "typecheck": "npm --workspace apps/admin run typecheck && npm --workspace apps/mobile run typecheck",
+    "lint": "npm --workspace apps/admin run lint"
+  },
+  "devDependencies": {
+    "caniuse-lite": "^1.0.30001799",
+    "concurrently": "^8.2.2",
+    "es-abstract": "^1.24.2",
+    "lodash": "^4.18.1",
+    "playwright": "^1.61.0",
+    "typescript": "^5.4.5"
+  }
+}

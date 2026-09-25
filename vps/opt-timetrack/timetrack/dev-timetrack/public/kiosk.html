@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f1312">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Timetrack">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Timetrack — планшет</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/timetrack-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --ink: #ffffff;
+    --ink-dim: rgba(255, 255, 255, 0.78);
+    --ink-faint: rgba(255, 255, 255, 0.6);
+    --glass-dark: rgba(70, 62, 56, 0.32);
+    --glass-dark-border: rgba(255, 255, 255, 0.22);
+    --glass-green: rgba(86, 160, 110, 0.58);
+    --glass-green-border: rgba(180, 240, 200, 0.32);
+    --glass-red: rgba(180, 70, 70, 0.5);
+    --glass-red-border: rgba(255, 180, 180, 0.32);
+    --arrive-active: #22c55e;
+    --arrive-disabled: #a8e1c4;
+    --leave-active: #2563eb;
+    --leave-disabled: #9fc3f2;
+    --shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+    --radius: 18px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: #000;
+    color: var(--ink);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { font: inherit; border: none; cursor: pointer; }
+
+  .app {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: 20px;
+    gap: 20px;
+  }
+
+  .bg-video, .bg-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    z-index: 0;
+  }
+
+  .bg-canvas { pointer-events: none; }
+
+  /* Full-screen green flash used by the photometric liveness check. */
+  .flash-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #00ff66;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .flash-overlay.on { opacity: 1; }
+
+  /* Soft oval guide so the user centers their face at the right distance. */
+  .face-guide {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 50%;
+    width: min(280px, 42vw);
+    height: min(360px, 54vw);
+    transform: translate(-50%, -58%);
+    border: 2px dashed rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 0 0 2000px rgba(0, 0, 0, 0.18);
+  }
+  .face-guide[hidden] { display: none; }
+
+  .bg-fallback {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+    background: #0d1311;
+    z-index: 1;
+    padding: 40px;
+  }
+
+  .app.sleeping .bg-video { filter: brightness(0.32) saturate(0.6); }
+  .app.sleeping .bg-canvas { opacity: 0; }
+
+  .sleep-layer {
+    position: absolute;
+    inset: 0;
+    display: none;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 3;
+    pointer-events: none;
+  }
+  .app.sleeping .sleep-layer { display: grid; }
+  .sleep-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 22px;
+    border-radius: 16px;
+    background: rgba(15, 19, 18, 0.72);
+    border: 1px solid var(--glass-dark-border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    font-weight: 700;
+  }
+
+  .topbar {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    align-items: center;
+    gap: 24px;
+    padding: 18px 28px;
+    border-radius: var(--radius);
+    background: var(--glass-dark);
+    border: 1px solid var(--glass-dark-border);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    box-shadow: var(--shadow);
+  }
+
+  .big-btn.camera-btn {
+    width: 88px;
+    min-width: 88px;
+    padding: 0;
+    background: var(--glass-dark);
+    border: 1px solid var(--glass-dark-border);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .big-btn.camera-btn i { width: 26px; height: 26px; }
+  .big-btn.camera-btn.spinning i { animation: camera-reload-spin 0.8s linear infinite; }
+  @keyframes camera-reload-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .brand img {
+    height: 26px;
+    width: auto;
+    display: block;
+  }
+
+  .greeting { text-align: center; }
+  .greeting-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .greeting-sub {
+    margin-top: 4px;
+    color: var(--ink-dim);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .clock { text-align: right; font-variant-numeric: tabular-nums; }
+  .clock-time {
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  .clock-date {
+    margin-top: 4px;
+    color: var(--ink-dim);
+    font-size: 13px;
+  }
+
+  .stage {
+    position: relative;
+    z-index: 4;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+  }
+
+  .rec-card {
+    pointer-events: auto;
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 18px;
+    align-items: center;
+    width: min(560px, 100%);
+    padding: 20px 24px;
+    border-radius: var(--radius);
+    background: var(--glass-dark);
+    border: 1px solid var(--glass-dark-border);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    box-shadow: var(--shadow);
+    transition: background 0.25s ease, border-color 0.25s ease;
+  }
+
+  .rec-card.found,
+  .rec-card.pending {
+    background: var(--glass-green);
+    border-color: var(--glass-green-border);
+  }
+
+  .rec-card.unknown {
+    background: var(--glass-red);
+    border-color: var(--glass-red-border);
+  }
+
+  .rec-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+    color: rgba(255, 255, 255, 0.9);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    font-weight: 800;
+    font-size: 22px;
+    flex: 0 0 auto;
+  }
+
+  .rec-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .rec-avatar i { width: 32px; height: 32px; }
+
+  .rec-name {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+
+  .rec-meta {
+    margin-top: 4px;
+    color: var(--ink-dim);
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .rec-hint {
+    margin-top: 6px;
+    color: var(--ink-dim);
+    font-size: 13px;
+    line-height: 1.4;
+    display: none;
+  }
+
+  .rec-card.pending .rec-hint { display: block; }
+
+  .bottom-bar {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    grid-template-columns: 1fr 88px 1fr;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .big-btn {
+    min-height: 88px;
+    border-radius: var(--radius);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    box-shadow: var(--shadow);
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+
+  .big-btn.arrive { background: var(--arrive-active); }
+  .big-btn.leave { background: var(--leave-active); }
+  .big-btn:active:not(:disabled) { transform: translateY(1px); }
+
+  .big-btn:disabled,
+  .big-btn[aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+  .big-btn.arrive:disabled { background: var(--arrive-disabled); color: rgba(255, 255, 255, 0.85); }
+  .big-btn.leave:disabled { background: var(--leave-disabled); color: rgba(255, 255, 255, 0.85); }
+
+  .greet-layer {
+    position: fixed;
+    inset: 0;
+    display: none;
+    place-items: center;
+    z-index: 90;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.42);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .greet-layer.visible { display: grid; }
+
+  .greet-card {
+    max-width: 640px;
+    padding: 36px 40px;
+    border-radius: 24px;
+    background: rgba(60, 110, 80, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+    color: #fff;
+    text-align: center;
+    animation: greet-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  @keyframes greet-pop {
+    from { transform: scale(0.85); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .greet-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.22);
+    display: grid;
+    place-items: center;
+  }
+
+  .greet-icon i { width: 32px; height: 32px; }
+
+  .greet-title {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .greet-sub {
+    margin-top: 10px;
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.92);
+    line-height: 1.4;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    left: 50%;
+    bottom: 130px;
+    transform: translateX(-50%);
+    display: grid;
+    gap: 10px;
+    z-index: 80;
+    pointer-events: none;
+  }
+
+  .toast {
+    min-width: min(420px, calc(100vw - 36px));
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(15, 19, 18, 0.85);
+    border: 1px solid var(--glass-dark-border);
+    color: #fff;
+    text-align: center;
+    font-weight: 600;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: var(--shadow);
+  }
+
+  .toast.ok { background: rgba(34, 197, 94, 0.85); border-color: rgba(180, 240, 200, 0.32); }
+  .toast.danger { background: rgba(220, 65, 65, 0.85); border-color: rgba(255, 180, 180, 0.32); }
+
+  .diag { position: absolute; opacity: 0; pointer-events: none; left: -9999px; }
+
+  /* Liveness instruction modal — shows how to confirm (blink / turn head). */
+  .liveness-guide-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: none;
+    place-items: center;
+    background: rgba(0, 0, 0, 0.55);
+    padding: 24px;
+  }
+  .liveness-guide-overlay.visible { display: grid; }
+
+  .liveness-guide-card {
+    width: min(360px, 100%);
+    padding: 28px 26px 24px;
+    border-radius: 24px;
+    background: var(--glass-dark);
+    border: 1px solid var(--glass-dark-border);
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .liveness-guide-title { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .liveness-guide-sub { color: var(--ink-dim); font-size: 14px; margin-bottom: 18px; }
+
+  .liveness-scene { margin-bottom: 8px; }
+  .liveness-gif {
+    border-radius: 16px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .liveness-guide-btn {
+    margin-top: 4px;
+    width: 100%;
+    min-height: 52px;
+    border-radius: 14px;
+    background: var(--arrive-active);
+    color: #fff;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .liveness-guide-btn:active { transform: translateY(1px); }
+
+  @media (max-width: 720px) {
+    .app { padding: 12px; gap: 12px; }
+    .topbar { grid-template-columns: 1fr; gap: 8px; padding: 14px 18px; text-align: center; }
+    .brand, .clock { text-align: center; }
+    .big-btn.camera-btn { width: 64px; min-width: 64px; }
+    .greeting-sub { display: none; }
+    .clock-time { font-size: 24px; }
+    .rec-card { grid-template-columns: 60px 1fr; padding: 14px 16px; gap: 12px; }
+    .rec-avatar { width: 60px; height: 60px; font-size: 18px; }
+    .rec-avatar i { width: 24px; height: 24px; }
+    .rec-name { font-size: 18px; }
+    .big-btn { min-height: 68px; font-size: 18px; }
+    .bottom-bar { grid-template-columns: 1fr 64px 1fr; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <video id="video-kiosk" class="bg-video" autoplay muted playsinline></video>
+  <canvas id="canvas-kiosk" class="bg-canvas"></canvas>
+  <div class="face-guide" id="face-guide" hidden></div>
+  <div class="flash-overlay" id="flash-overlay"></div>
+
+  <div class="bg-fallback" id="camera-empty">
+    <div>
+      <div style="font-size: 18px; font-weight: 700; margin-bottom: 8px;">Камера не запущена</div>
+      <div style="color: var(--ink-dim); font-size: 14px;">Разрешите доступ к камере, чтобы начать распознавание.</div>
+    </div>
+  </div>
+
+  <div class="sleep-layer" id="sleep-layer">
+    <div class="sleep-card"><i data-lucide="moon"></i><span>Спящий режим</span></div>
+  </div>
+
+  <div class="liveness-guide-overlay" id="liveness-guide">
+    <div class="liveness-guide-card">
+      <div class="liveness-guide-title">Проверка личности</div>
+      <div class="liveness-guide-sub">Моргните или слегка поверните голову, не выходя за рамку</div>
+      <div class="liveness-scene">
+        <img src="https://media1.giphy.com/media/v1.Y2lkPTc5MGI3NjExc2dieXQwa3I5eHdlZjk2NmN5M21mZG1wNDFxMXF4ZzV2dGJuMDd0MSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/st7q18mjEvCbm/giphy.gif"
+             alt="Проверка личности" width="220" height="220" class="liveness-gif" loading="eager">
+      </div>
+      <button class="liveness-guide-btn" onclick="dismissLivenessGuide()">Понятно</button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand"><img src="timetrack-logo.svg" alt="Timetrack" id="brand-logo"><span id="brand-label" hidden></span></div>
+    <div class="greeting">
+      <div class="greeting-title" id="greeting">Доброе утро!</div>
+      <div class="greeting-sub">Следуйте инструкциям и убедитесь, что отметка точно сохранилась</div>
+    </div>
+    <div class="clock">
+      <div class="clock-time" id="clock">--:--</div>
+      <div class="clock-date" id="date-label"></div>
+    </div>
+  </header>
+
+  <div class="stage">
+    <div class="rec-card" id="recognition">
+      <div class="rec-avatar" id="rec-avatar"><i data-lucide="user"></i></div>
+      <div>
+        <div class="rec-name" id="rec-name">Поднесите планшет ближе к лицу</div>
+        <div class="rec-meta" id="rec-meta">После распознавания станут доступны кнопки отметки</div>
+        <div class="rec-hint" id="rec-hint">Моргните, чтобы подтвердить, что вы живой человек — и кнопки активируются</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-bar">
+    <button class="big-btn arrive" id="btn-checkin" onclick="markAttendance('checkin')" disabled>Прибытие</button>
+    <button class="big-btn camera-btn" id="btn-reload-camera" onclick="restartCamera()" title="Перезагрузить камеру" aria-label="Перезагрузить камеру">
+      <i data-lucide="refresh-cw"></i>
+    </button>
+    <button class="big-btn leave" id="btn-checkout" onclick="markAttendance('checkout')" disabled>Уход</button>
+  </div>
+
+  <!-- preserved hidden diagnostic nodes (JS reads these) -->
+  <span class="diag" id="sync-badge"><span></span></span>
+  <span class="diag" id="model-badge"><span></span></span>
+  <span class="diag" id="people-badge"><span></span></span>
+  <span class="diag" id="video-status"></span>
+  <span class="diag" id="metric-present">0</span>
+</div>
+
+<div class="greet-layer" id="greet-layer">
+  <div class="greet-card">
+    <div class="greet-icon"><i data-lucide="check"></i></div>
+    <div class="greet-title" id="greet-title">Доброе утро!</div>
+    <div class="greet-sub" id="greet-sub">Отметка сохранена, успешного дня!</div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+const SLUG = new URLSearchParams(location.search).get('c') || '';
+if (!SLUG) {
+  location.replace('index.html');
+}
+const API = `api.php?c=${encodeURIComponent(SLUG)}&action=`;
+const MODEL_URL = 'models';
+const STORE_KEY = `timetrack_state_${SLUG}`;
+const QUEUE_KEY = `timetrack_queue_${SLUG}`;
+const QUEUE_MAX = 1000;
+const DEFAULT_STATE = {
+  employees: [],
+  logs: [],
+  settings: { recognitionModel: 'tiny', matchThreshold: 0.55, lateMinutes: 15 },
+};
+
+installCompanyManifest('tablet');
+
+let state = clone(DEFAULT_STATE);
+let syncMode = 'local';
+let kioskStream = null;
+let detectionTimer = null;
+let sleepTimer = null;
+let motionTimer = null;
+let motionCanvas = null;
+let motionFrame = null;
+let detecting = false;
+let sleeping = false;
+let waking = false;
+let modelsLoadedFor = '';
+let currentDetected = null;
+let lastFullMatchAt = 0;
+let quickMissCount = 0;
+let lastVisualActivityAt = Date.now();
+let cameraWatchdogTimer = null;
+let lastCameraCurrentTime = -1;
+let cameraStallTicks = 0;
+let stoppingTracksIntentionally = false;
+let liveness = {
+  empId: null,
+  blinkClosed: false,
+  confirmed: false,
+  confirmedAt: 0,
+  openEar: 0,
+  headLeft: false,
+  headRight: false,
+  method: '',
+};
+
+const LIVENESS_ENABLED = true;       // one-blink (or head-turn) confirmation
+const LIVENESS_CONFIRM_MS = 10000;
+const BLINK_DEEP_RATIO = 0.72;       // a single frame this far below baseline = a clear blink, confirm immediately
+const BLINK_CLOSE_RATIO = 0.86;      // shallower dip → mark "closing", confirm on reopen (two-phase fallback)
+const BLINK_OPEN_RATIO = 0.9;
+const MIN_CLOSED_EAR = 0.16;
+const MIN_OPEN_EAR = 0.18;
+const QUICK_MISS_TOLERANCE = 4;      // keep recognition/blink state through this many missed frames (a blink drops detection briefly)
+const BLINK_DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+let blinkDebugEl = null;
+const HEAD_TURN_THRESHOLD = 0.045;
+
+// --- Active-flash (photometric) liveness ---------------------------------
+// The screen briefly flashes bright green; we compare a face crop before vs.
+// during the flash. A real 3D face reflects more light on the nose/forehead
+// (closer to the screen) than on the cheeks/edges, producing a soft radial
+// gradient. A flat photo brightens uniformly; a phone screen produces a hard
+// specular spike; an overpowering external light produces no change at all.
+const FLASH_LIVENESS_ENABLED = false; // optical/flash approach: dead on this hardware (camera auto-exposure cancels the signal)
+const FLASH_DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+const FLASH_VALID_MS = 10000;        // how long one successful check stays valid
+const FLASH_COOLDOWN_MS = 1600;      // min gap between flash attempts
+const FLASH_SETTLE_MS = 130;         // wait after flash-on before capturing frame B
+const FLASH_ANALYZE_SIZE = 64;       // downscaled analysis resolution (square)
+const FLASH_MIN_FACE_PX = 90;        // min face-box side to attempt a check
+// Decision thresholds — these WILL need on-device calibration via ?debug=1.
+const FLASH_AMBIENT_MAX = 232;       // frame-A green mean above this = oversaturated
+// Greenness (G/(R+G+B)×255) thresholds — auto-exposure-robust. Provisional;
+// calibrate from ?debug=1 readings of a live face vs a photo.
+const FLASH_MIN_GREEN_RISE = 2.5;    // min avg greenness rise = flash actually registered
+const FLASH_MIN_GREEN_GRADIENT = 1.5; // (center − edge) greenness rise = the 3D shape cue
+const FLASH_GREEN_SPIKE_MIN = 20;    // a localized greenness spike must reach this
+const FLASH_GREEN_SPIKE_RATIO = 6;   // gMax / gMean above this = concentrated glare (phone)
+let flashGuard = { empId: null, confirmed: false, confirmedAt: 0, running: false, lastCheckAt: 0, lastReason: '' };
+let flashCanvas = null;
+let flashCtx = null;
+let flashDebugEl = null;
+let wakeLockSentinel = null;
+let livenessGuideShownFor = null; // empId we've already shown the instruction modal for
+const FULL_MATCH_INTERVAL_MS = 2200;
+const DUPLICATE_WINDOW_MS = 120000;
+const SLEEP_AFTER_MS = 45000;
+const MOTION_SCAN_INTERVAL_MS = 700;
+const MOTION_WIDTH = 64;
+const MOTION_HEIGHT = 48;
+const MOTION_DIFF_THRESHOLD = 18;
+const MOTION_RATIO_THRESHOLD = 0.012;
+const CAMERA_WATCHDOG_INTERVAL_MS = 5000;
+const CAMERA_STALL_TICKS_BEFORE_RESTART = 3; // ~15s of a frozen/dead feed
+
+const Store = {
+  async load() {
+    try {
+      if (location.protocol === 'file:') throw new Error('local file');
+      const res = await fetch(API + 'state', { cache: 'no-store' });
+      if (!res.ok) throw new Error('api unavailable');
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || 'api error');
+      applyState(data.state);
+      syncMode = 'server';
+      saveLocal();
+      renderAll();
+      await flushQueue();
+      return;
+    } catch (error) {
+      const cached = localStorage.getItem(STORE_KEY);
+      applyState(cached ? JSON.parse(cached) : DEFAULT_STATE);
+      syncMode = 'local';
+    }
+    renderAll();
+  },
+
+  async post(action, body) {
+    const localAction = () => {
+      if (action === 'addLog') state.logs.unshift(body.log);
+      saveLocal();
+      renderAll();
+    };
+
+    try {
+      if (location.protocol === 'file:') throw new Error('local file');
+      const res = await fetch(API + encodeURIComponent(action), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...body }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        const error = new Error(data?.error || 'api unavailable');
+        error.appError = true;
+        error.state = data?.state || null;
+        throw error;
+      }
+      applyState(data.state);
+      syncMode = 'server';
+      saveLocal();
+      renderAll();
+      if (queueSize() > 0) await flushQueue();
+      return true;
+    } catch (error) {
+      if (error.appError) {
+        if (error.state) {
+          applyState(error.state);
+          syncMode = 'server';
+          saveLocal();
+          renderAll();
+        }
+        toast(error.message || 'Не удалось сохранить отметку', 'danger');
+        return false;
+      }
+      // Network unreachable: record locally AND persist to the outbox so the
+      // mark is re-sent to the server once connectivity returns.
+      if (action === 'addLog' && body.log) enqueueLog(body.log);
+      syncMode = 'local';
+      localAction();
+      return true;
+    }
+  },
+};
+
+// --- Offline outbox: queued check-ins awaiting delivery to the server -------
+function loadQueue() {
+  try {
+    const raw = localStorage.getItem(QUEUE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveQueue(queue) {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue.slice(-QUEUE_MAX)));
+  } catch {}
+}
+
+function queueSize() {
+  return loadQueue().length;
+}
+
+function enqueueLog(log) {
+  const queue = loadQueue();
+  // Guard against double-queueing the same mark (e.g. retry of one tap).
+  if (queue.some((item) => item.id === log.id)) return;
+  queue.push(log);
+  saveQueue(queue);
+  renderBadges();
+}
+
+let flushing = false;
+async function flushQueue() {
+  if (flushing) return;
+  if (location.protocol === 'file:') return;
+  let queue = loadQueue();
+  if (queue.length === 0) return;
+  flushing = true;
+  try {
+    // Replay oldest-first so attendance order is preserved on the server.
+    while (queue.length > 0) {
+      const log = queue[0];
+      let res;
+      try {
+        res = await fetch(API + 'addLog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'addLog', log }),
+        });
+      } catch {
+        // Still offline — keep the remaining queue for the next attempt.
+        break;
+      }
+      const data = await res.json().catch(() => null);
+      if ((res.ok && data?.ok) || res.status === 409) {
+        // Delivered, or the server already has an equivalent mark (409 dup):
+        // either way it is safe to drop from the outbox.
+        if (data?.state) {
+          applyState(data.state);
+          syncMode = 'server';
+          saveLocal();
+        }
+        queue.shift();
+        saveQueue(queue);
+      } else {
+        // Server reachable but rejected for another reason — stop and retry
+        // later rather than spin on a poison entry.
+        break;
+      }
+    }
+    renderAll();
+  } finally {
+    flushing = false;
+  }
+}
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function applyState(next) {
+  state = {
+    employees: Array.isArray(next?.employees) ? next.employees : [],
+    logs: Array.isArray(next?.logs) ? next.logs : [],
+    settings: { ...DEFAULT_STATE.settings, ...(next?.settings || {}) },
+  };
+}
+
+function saveLocal() {
+  const pruned = {
+    employees: state.employees,
+    logs: state.logs.slice(0, 200).map(({ empPhoto, ...rest }) => rest),
+    settings: state.settings,
+  };
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(pruned));
+  } catch (error) {
+    try {
+      const minimal = {
+        employees: state.employees.map(({ photo, ...rest }) => rest),
+        logs: [],
+        settings: state.settings,
+      };
+      localStorage.setItem(STORE_KEY, JSON.stringify(minimal));
+    } catch {
+      try { localStorage.removeItem(STORE_KEY); } catch {}
+    }
+  }
+}
+
+function installCompanyManifest(page) {
+  if (!SLUG || location.protocol === 'file:') return;
+  const pageFile = page === 'admin' ? 'admin.html' : 'tablet.html';
+  const startUrl = new URL(`${pageFile}?c=${encodeURIComponent(SLUG)}`, location.href);
+  const manifest = {
+    name: `Timetrack ${SLUG}`,
+    short_name: 'Timetrack',
+    description: 'Планшетная отметка сотрудников Timetrack',
+    lang: 'ru',
+    id: startUrl.pathname + startUrl.search,
+    start_url: startUrl.href,
+    scope: new URL('./', location.href).href,
+    display: 'fullscreen',
+    display_override: ['fullscreen', 'standalone'],
+    orientation: 'landscape',
+    background_color: '#0f1312',
+    theme_color: '#0f1312',
+    categories: ['business', 'productivity'],
+    icons: [
+      {
+        src: new URL('icons/timetrack-192.png', location.href).href,
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+      {
+        src: new URL('icons/timetrack-512.png', location.href).href,
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any maskable',
+      },
+    ],
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const href = URL.createObjectURL(blob);
+  const link = document.querySelector('link[rel="manifest"]') || document.createElement('link');
+  link.rel = 'manifest';
+  link.href = href;
+  document.head.appendChild(link);
+}
+
+function escapeHTML(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+  }[char]));
+}
+
+function safePhoto(photo) {
+  return typeof photo === 'string' && photo.startsWith('data:image/') ? photo : '';
+}
+
+function initials(emp) {
+  return `${emp.fname?.[0] || ''}${emp.lname?.[0] || ''}`.toUpperCase() || '?';
+}
+
+function greetingTitleByTime(now = new Date()) {
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  if (minutes >= 8 * 60 && minutes <= 11 * 60) return 'Доброе утро!';
+  if (minutes >= 11 * 60 + 1 && minutes <= 16 * 60 + 30) return 'Добрый день!';
+  if (minutes >= 16 * 60 + 31 && minutes <= 22 * 60) return 'Добрый вечер!';
+  return 'Доброй ночи!';
+}
+
+function savedSubtitleByTime(now = new Date()) {
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  if (minutes >= 16 * 60 + 31 && minutes <= 22 * 60) return 'Отметка сохранена, отличного вечера!';
+  return 'Отметка сохранена, успешного дня!';
+}
+
+const DEFAULT_GREETING_SUB = 'Следуйте инструкциям и убедитесь, что отметка точно сохранилась';
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('date-label').textContent = now.toLocaleDateString('ru-RU', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
+  document.getElementById('greeting').textContent = greetingTitleByTime(now);
+}
+
+function renderAll() {
+  renderBadges();
+  renderMetrics();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function renderBadges() {
+  const employeesWithFace = state.employees.filter((emp) => Array.isArray(emp.descriptor)).length;
+  const syncBadge = document.getElementById('sync-badge');
+  if (syncBadge) {
+    const pending = queueSize();
+    let label = syncMode === 'server' ? 'Сервер' : 'Локально';
+    if (pending > 0) label += ` · ${pending} в очереди`;
+    syncBadge.querySelector('span').textContent = label;
+  }
+
+  const model = state.settings.recognitionModel === 'ssd' ? 'Точная' : 'Быстрая';
+  const modelBadge = document.getElementById('model-badge');
+  if (modelBadge) modelBadge.querySelector('span').textContent = model;
+  const peopleBadge = document.getElementById('people-badge');
+  if (peopleBadge) peopleBadge.querySelector('span').textContent = `${employeesWithFace} лиц`;
+}
+
+function todayLogs() {
+  const today = new Date().toLocaleDateString('ru-RU');
+  return state.logs.filter((log) => log.date === today);
+}
+
+function latestEmployeeLog(empId) {
+  return todayLogs()
+    .slice()
+    .sort((a, b) => new Date(b.ts) - new Date(a.ts))
+    .find((log) => log.empId === empId);
+}
+
+function nextActionFor(empId) {
+  return latestEmployeeLog(empId)?.type === 'checkin' ? 'checkout' : 'checkin';
+}
+
+function actionLabel(type) {
+  return type === 'checkout' ? 'Уход' : 'Прибытие';
+}
+
+function recentDuplicate(empId, type, now = new Date()) {
+  return state.logs.some((log) => {
+    const ts = new Date(log.ts);
+    return log.empId === empId &&
+      log.type === type &&
+      !Number.isNaN(ts.getTime()) &&
+      Math.abs(now - ts) <= DUPLICATE_WINDOW_MS;
+  });
+}
+
+function renderMetrics() {
+  const logs = todayLogs();
+  const status = {};
+  logs.slice().reverse().forEach((log) => { status[log.empId] = log.type; });
+  const m = document.getElementById('metric-present');
+  if (m) m.textContent = Object.values(status).filter((type) => type === 'checkin').length;
+}
+
+function setVideoStatus(text) {
+  const el = document.getElementById('video-status');
+  if (el) el.textContent = text;
+}
+
+function clearDetectionCanvas() {
+  const canvas = document.getElementById('canvas-kiosk');
+  canvas.getContext('2d').clearRect(0, 0, canvas.width || 1, canvas.height || 1);
+}
+
+function stopDetection() {
+  if (detectionTimer) clearInterval(detectionTimer);
+  detectionTimer = null;
+  detecting = false;
+}
+
+// Detects a frozen/dead camera feed without any user action: if the video
+// element's playback clock stops advancing, or the track itself reports
+// ended/muted, the kiosk restarts the camera on its own. Runs even while
+// sleeping, since the stream stays open in the background during sleep.
+function startCameraWatchdog() {
+  stopCameraWatchdog();
+  lastCameraCurrentTime = -1;
+  cameraStallTicks = 0;
+  cameraWatchdogTimer = setInterval(() => {
+    if (!kioskStream) return;
+    const video = document.getElementById('video-kiosk');
+    const track = kioskStream.getVideoTracks()[0];
+    const trackDead = !track || track.readyState === 'ended' || track.muted;
+    const frameStalled = video.currentTime === lastCameraCurrentTime;
+    lastCameraCurrentTime = video.currentTime;
+
+    cameraStallTicks = (trackDead || frameStalled) ? cameraStallTicks + 1 : 0;
+    if (cameraStallTicks >= CAMERA_STALL_TICKS_BEFORE_RESTART) {
+      cameraStallTicks = 0;
+      console.warn('Camera watchdog: feed appears frozen, restarting automatically');
+      restartCamera();
+    }
+  }, CAMERA_WATCHDOG_INTERVAL_MS);
+}
+
+function stopCameraWatchdog() {
+  if (cameraWatchdogTimer) clearInterval(cameraWatchdogTimer);
+  cameraWatchdogTimer = null;
+}
+
+function stopMotionWatch() {
+  if (motionTimer) clearInterval(motionTimer);
+  motionTimer = null;
+  motionFrame = null;
+}
+
+function noteVisualActivity() {
+  lastVisualActivityAt = Date.now();
+  if (!sleeping) scheduleSleepCheck();
+}
+
+function scheduleSleepCheck() {
+  if (sleepTimer) clearTimeout(sleepTimer);
+  sleepTimer = setTimeout(() => {
+    const idleFor = Date.now() - lastVisualActivityAt;
+    if (!sleeping && idleFor >= SLEEP_AFTER_MS && !currentDetected) {
+      enterSleepMode();
+      return;
+    }
+    scheduleSleepCheck();
+  }, SLEEP_AFTER_MS);
+}
+
+function enterSleepMode() {
+  if (!kioskStream || sleeping) return;
+  sleeping = true;
+  currentDetected = null;
+  resetLiveness();
+  stopDetection();
+  clearDetectionCanvas();
+  setButtons(false);
+  document.querySelector('.app').classList.add('sleeping');
+  setFaceGuideVisible(false);
+  setRecognitionIdle('Ожидание движения');
+  setVideoStatus('Спящий режим');
+}
+
+async function wakeFromSleep() {
+  if (waking) return;
+  waking = true;
+  try {
+    if (!kioskStream) {
+      await startCamera();
+      return;
+    }
+    if (!sleeping) return;
+    sleeping = false;
+    document.querySelector('.app').classList.remove('sleeping');
+    setFaceGuideVisible(FLASH_LIVENESS_ENABLED);
+    lastFullMatchAt = 0;
+    noteVisualActivity();
+    setRecognitionIdle('Поднесите планшет ближе к лицу');
+    setVideoStatus('Движение замечено');
+    if (modelsLoadedFor || await loadModels()) startDetection();
+  } finally {
+    waking = false;
+  }
+}
+
+function startMotionWatch() {
+  stopMotionWatch();
+  motionCanvas = motionCanvas || document.createElement('canvas');
+  motionCanvas.width = MOTION_WIDTH;
+  motionCanvas.height = MOTION_HEIGHT;
+  motionTimer = setInterval(checkMotion, MOTION_SCAN_INTERVAL_MS);
+}
+
+function checkMotion() {
+  const video = document.getElementById('video-kiosk');
+  if (!kioskStream || video.readyState < 2) return;
+  const ctx = motionCanvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(video, 0, 0, MOTION_WIDTH, MOTION_HEIGHT);
+  const data = ctx.getImageData(0, 0, MOTION_WIDTH, MOTION_HEIGHT).data;
+  const frame = new Uint8Array(MOTION_WIDTH * MOTION_HEIGHT);
+  let changed = 0;
+
+  for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
+    const value = Math.round(data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
+    frame[p] = value;
+    if (motionFrame && Math.abs(value - motionFrame[p]) > MOTION_DIFF_THRESHOLD) changed += 1;
+  }
+
+  const ratio = motionFrame ? changed / frame.length : 0;
+  motionFrame = frame;
+  if (ratio <= MOTION_RATIO_THRESHOLD) return;
+  if (sleeping) wakeFromSleep();
+  else noteVisualActivity();
+}
+
+async function startCamera() {
+  try {
+    stopDetection();
+    stopMotionWatch();
+    stopCameraWatchdog();
+    if (sleepTimer) clearTimeout(sleepTimer);
+    sleeping = false;
+    document.querySelector('.app').classList.remove('sleeping');
+    if (kioskStream) {
+      stoppingTracksIntentionally = true;
+      kioskStream.getTracks().forEach((track) => track.stop());
+    }
+    kioskStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 720 } },
+      audio: false,
+    });
+    stoppingTracksIntentionally = false;
+    const track = kioskStream.getVideoTracks()[0];
+    if (track) {
+      // Fires if the camera disconnects on its own (unplugged, OS-level
+      // failure) — restart right away instead of waiting for the watchdog.
+      track.onended = () => {
+        if (stoppingTracksIntentionally) return;
+        console.warn('Camera track ended unexpectedly, restarting automatically');
+        restartCamera();
+      };
+    }
+    const video = document.getElementById('video-kiosk');
+    video.srcObject = kioskStream;
+    document.getElementById('camera-empty').style.display = 'none';
+    setFaceGuideVisible(FLASH_LIVENESS_ENABLED);
+    requestWakeLock();
+    probeCameraCaps();
+    setVideoStatus('Камера активна');
+    noteVisualActivity();
+    startMotionWatch();
+    startCameraWatchdog();
+    await loadModels();
+    startDetection();
+  } catch (error) {
+    setVideoStatus('Нет доступа к камере');
+    document.getElementById('camera-empty').style.display = 'grid';
+    setFaceGuideVisible(false);
+    toast('Не удалось открыть камеру. Проверьте разрешения браузера.', 'danger');
+  }
+}
+
+function setFaceGuideVisible(visible) {
+  const guide = document.getElementById('face-guide');
+  if (guide) guide.hidden = !visible;
+}
+
+// A short beep cues "Проверка личности" without needing an audio asset file.
+// Browsers block audio before any user gesture, so the AudioContext is
+// created lazily and resumed on first tap — normal on a kiosk that gets
+// touched within seconds of waking up.
+let audioCtx = null;
+function ensureAudioContext() {
+  if (!audioCtx) {
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch { return null; }
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  return audioCtx;
+}
+document.addEventListener('pointerdown', ensureAudioContext);
+
+function playVerifyingSound() {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+  try {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.28);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  } catch {}
+}
+
+// Shown every time someone is mid-verification — explains blinking/turning
+// the head to confirm liveness. Auto-hides once liveness is confirmed.
+function maybeShowLivenessGuide(empId) {
+  const el = document.getElementById('liveness-guide');
+  if (el) el.classList.add('visible');
+  // Play the verifying cue once per detection session, not on every tick.
+  if (livenessGuideShownFor !== empId) {
+    livenessGuideShownFor = empId;
+    playVerifyingSound();
+  }
+}
+
+function hideLivenessGuide() {
+  const el = document.getElementById('liveness-guide');
+  if (el) el.classList.remove('visible');
+  livenessGuideShownFor = null;
+}
+
+function dismissLivenessGuide() {
+  hideLivenessGuide();
+}
+
+// Diagnostic only (?debug=1): shows whether the camera lets the browser lock
+// exposure / white balance — the backup plan if greenness alone isn't enough.
+function probeCameraCaps() {
+  if (!FLASH_DEBUG || !kioskStream) return;
+  try {
+    const track = kioskStream.getVideoTracks()[0];
+    const caps = track.getCapabilities ? track.getCapabilities() : {};
+    const lines = [
+      'exposureMode: ' + (caps.exposureMode ? caps.exposureMode.join('/') : 'n/a'),
+      'whiteBalance: ' + (caps.whiteBalanceMode ? caps.whiteBalanceMode.join('/') : 'n/a'),
+      'expComp: ' + (caps.exposureCompensation ? 'yes' : 'n/a'),
+      'brightness: ' + (caps.brightness ? 'yes' : 'n/a'),
+    ];
+    let el = document.getElementById('cam-caps');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'cam-caps';
+      el.style.cssText = 'position:fixed;top:8px;right:8px;z-index:99999;background:rgba(0,0,0,0.8);color:#6cf;font:10px monospace;padding:6px 8px;border-radius:6px;white-space:pre;pointer-events:none;';
+      document.body.appendChild(el);
+    }
+    el.textContent = 'CAM CAPS\n' + lines.join('\n');
+  } catch (_) { /* ignore */ }
+}
+
+// Keep the screen awake at full brightness so the flash always has enough
+// light; Android auto-dim would otherwise weaken the reflection signal.
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && !wakeLockSentinel) {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => { wakeLockSentinel = null; });
+    }
+  } catch (_) { /* not supported / denied — non-fatal */ }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && kioskStream) requestWakeLock();
+});
+
+async function restartCamera() {
+  const btn = document.getElementById('btn-reload-camera');
+  if (btn) { btn.disabled = true; btn.classList.add('spinning'); }
+  currentDetected = null;
+  resetLiveness();
+  setRecognitionIdle();
+  try {
+    await startCamera();
+    toast('Камера перезагружена', 'ok');
+  } finally {
+    if (btn) { btn.disabled = false; btn.classList.remove('spinning'); }
+  }
+}
+
+async function loadModels() {
+  const model = state.settings.recognitionModel === 'ssd' ? 'ssd' : 'tiny';
+  if (modelsLoadedFor === model) return true;
+  if (!window.faceapi) {
+    setVideoStatus('face-api.js ещё загружается');
+    return false;
+  }
+
+  setVideoStatus(model === 'ssd' ? 'Загрузка точной модели...' : 'Загрузка быстрой модели...');
+  const tasks = [
+    faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL),  // for recognition (keeps enrolled descriptors compatible)
+    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),      // full model — accurate eye landmarks for blink
+    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  ];
+  if (model === 'ssd') {
+    tasks.push(faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL));
+  } else {
+    tasks.push(faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL));
+  }
+  await Promise.all(tasks);
+  modelsLoadedFor = model;
+  setVideoStatus('Модель готова');
+  return true;
+}
+
+function detectorOptions() {
+  return state.settings.recognitionModel === 'ssd'
+    ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+    : new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.4 });
+}
+
+function quickDetectorOptions() {
+  return state.settings.recognitionModel === 'ssd'
+    ? new faceapi.SsdMobilenetv1Options({ minConfidence: 0.4 })
+    : new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.3 });
+}
+
+function startDetection() {
+  if (sleeping) return;
+  if (detectionTimer) clearInterval(detectionTimer);
+  detectionTimer = setInterval(detectFace, 130); // fast sampling so a quick blink's closed phase is caught
+}
+
+async function detectFace() {
+  if (sleeping || detecting || !modelsLoadedFor) return;
+  if (flashGuard.running) return; // pause detection while the screen is flashing
+  const video = document.getElementById('video-kiosk');
+  if (video.readyState < 2) return;
+
+  detecting = true;
+  try {
+    const canDoQuickLiveness = currentDetected && Date.now() - lastFullMatchAt < FULL_MATCH_INTERVAL_MS;
+    if (canDoQuickLiveness) {
+      const detection = await faceapi
+        .detectSingleFace(video, quickDetectorOptions())
+        .withFaceLandmarks(false); // full landmark model = accurate eyelid tracking for blink
+      if (!detection) {
+        // A blink (closed/blurred eyes) often drops detection for a frame or
+        // two — don't wipe recognition/blink progress on a brief miss.
+        quickMissCount += 1;
+        if (quickMissCount > QUICK_MISS_TOLERANCE) {
+          currentDetected = null;
+          resetLiveness();
+          clearDetectionCanvas();
+          setRecognitionIdle('Лицо не найдено');
+        }
+      } else {
+        quickMissCount = 0;
+        drawDetection(detection, video);
+        noteVisualActivity();
+        updateLiveness(detection, currentDetected.employee);
+        showRecognized(currentDetected.employee, currentDetected.confidence);
+      }
+    } else {
+      const detection = await faceapi
+        .detectSingleFace(video, detectorOptions())
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+      lastFullMatchAt = Date.now();
+      quickMissCount = 0;
+      drawDetection(detection, video);
+      recognize(detection);
+    }
+  } catch (error) {
+    setVideoStatus('Ошибка распознавания');
+  } finally {
+    detecting = false;
+  }
+}
+
+function drawDetection(detection, video) {
+  const canvas = document.getElementById('canvas-kiosk');
+  canvas.width = video.videoWidth || 640;
+  canvas.height = video.videoHeight || 480;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!detection) return;
+  const box = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height }).detection.box;
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(box.x, box.y, box.width, box.height);
+}
+
+function recognize(detection) {
+  if (!detection) {
+    currentDetected = null;
+    resetLiveness();
+    setRecognitionIdle('Лицо не найдено');
+    return;
+  }
+
+  noteVisualActivity();
+
+  const employees = state.employees.filter((emp) => Array.isArray(emp.descriptor));
+  if (!employees.length) {
+    currentDetected = null;
+    resetLiveness();
+    setRecognitionUnknown('В админке пока нет сотрудников с фото');
+    setVideoStatus('Нет зарегистрированных лиц');
+    return;
+  }
+
+  let best = null;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  employees.forEach((emp) => {
+    const distance = faceapi.euclideanDistance(detection.descriptor, new Float32Array(emp.descriptor.map(Number)));
+    if (distance < bestDistance) {
+      best = emp;
+      bestDistance = distance;
+    }
+  });
+
+  const threshold = Number(state.settings.matchThreshold || 0.55);
+  if (best && bestDistance <= threshold) {
+    const confidence = Math.max(1, Math.round((1 - bestDistance) * 100));
+    currentDetected = { employee: best, distance: bestDistance, confidence };
+    updateLiveness(detection, best);
+    showRecognized(best, confidence);
+    if (!isLivenessValid()) setVideoStatus(`Распознан: ${confidence}%. Моргните, чтобы подтвердить`);
+  } else {
+    currentDetected = null;
+    resetLiveness();
+    setRecognitionUnknown('Сотрудник не распознан');
+    setVideoStatus('Совпадений нет');
+  }
+}
+
+function resetLiveness(empId = null) {
+  liveness = {
+    empId,
+    blinkClosed: false,
+    confirmed: false,
+    confirmedAt: 0,
+    openEar: 0,
+    headLeft: false,
+    headRight: false,
+    method: '',
+  };
+  livenessGuideShownFor = null;
+  hideLivenessGuide();
+  // Preserve the cooldown/run flags so detection flicker can't spam flashes.
+  flashGuard = {
+    empId,
+    confirmed: false,
+    confirmedAt: 0,
+    running: Boolean(flashGuard && flashGuard.running),
+    lastCheckAt: (flashGuard && flashGuard.lastCheckAt) || 0,
+    lastReason: (flashGuard && flashGuard.lastReason) || '',
+  };
+}
+
+function isLivenessValid() {
+  if (!currentDetected) return false;
+  if (FLASH_LIVENESS_ENABLED) {
+    return Boolean(
+      flashGuard.empId === currentDetected.employee.id &&
+      flashGuard.confirmed &&
+      Date.now() - flashGuard.confirmedAt <= FLASH_VALID_MS
+    );
+  }
+  if (!LIVENESS_ENABLED) return true;
+  return Boolean(
+    liveness.empId === currentDetected.employee.id &&
+    liveness.confirmed &&
+    Date.now() - liveness.confirmedAt <= LIVENESS_CONFIRM_MS
+  );
+}
+
+function pointDistance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function eyeAspectRatio(eye) {
+  if (!eye || eye.length < 6) return 1;
+  const verticalA = pointDistance(eye[1], eye[5]);
+  const verticalB = pointDistance(eye[2], eye[4]);
+  const horizontal = pointDistance(eye[0], eye[3]);
+  return horizontal ? (verticalA + verticalB) / (2 * horizontal) : 1;
+}
+
+function eyeCenter(eye) {
+  return eye.reduce((sum, point) => ({ x: sum.x + point.x, y: sum.y + point.y }), { x: 0, y: 0 });
+}
+
+function headTurnOffset(landmarks) {
+  const leftEye = landmarks.getLeftEye();
+  const rightEye = landmarks.getRightEye();
+  const nose = landmarks.getNose();
+  const jaw = landmarks.getJawOutline();
+  if (!leftEye.length || !rightEye.length || nose.length < 4 || jaw.length < 17) return 0;
+
+  const left = eyeCenter(leftEye);
+  const right = eyeCenter(rightEye);
+  const eyeMidX = (left.x / leftEye.length + right.x / rightEye.length) / 2;
+  const faceWidth = Math.max(1, pointDistance(jaw[0], jaw[16]));
+  return (nose[3].x - eyeMidX) / faceWidth;
+}
+
+function confirmLiveness(message, method) {
+  liveness.confirmed = true;
+  liveness.confirmedAt = Date.now();
+  liveness.blinkClosed = false;
+  liveness.method = method;
+  setVideoStatus(message);
+  toast(message, 'ok');
+}
+
+function updateLiveness(detection, emp) {
+  if (FLASH_LIVENESS_ENABLED) {
+    if (flashGuard.empId !== emp.id) resetLiveness(emp.id);
+    maybeRunFlashCheck(detection, emp);
+    return;
+  }
+
+  if (liveness.empId !== emp.id) resetLiveness(emp.id);
+  if (isLivenessValid()) return;
+
+  const landmarks = detection.landmarks;
+  const leftEye = landmarks.getLeftEye();
+  const rightEye = landmarks.getRightEye();
+  const openness = (eyeAspectRatio(leftEye) + eyeAspectRatio(rightEye)) / 2;
+  const turn = headTurnOffset(landmarks);
+
+  if (!liveness.blinkClosed) {
+    liveness.openEar = liveness.openEar
+      ? Math.max(liveness.openEar * 0.94 + openness * 0.06, openness)
+      : openness;
+  }
+
+  const baseline = liveness.openEar || openness || 0.22;
+  const deepThreshold = Math.max(MIN_CLOSED_EAR, baseline * BLINK_DEEP_RATIO);
+  const closedThreshold = Math.max(MIN_CLOSED_EAR, baseline * BLINK_CLOSE_RATIO);
+  const openThreshold = Math.max(MIN_OPEN_EAR, baseline * BLINK_OPEN_RATIO);
+  updateBlinkDebug(openness, baseline, deepThreshold);
+
+  if (turn < -HEAD_TURN_THRESHOLD) liveness.headLeft = true;
+  if (turn > HEAD_TURN_THRESHOLD) liveness.headRight = true;
+  if (liveness.headLeft && liveness.headRight) {
+    confirmLiveness('Подтверждено движением головы', 'head');
+    return;
+  }
+
+  // A clear dip in a single frame is enough — at this sampling rate we often
+  // only catch one frame of the eyes mid-blink, so don't also require us to
+  // catch the reopen frame.
+  if (baseline > MIN_OPEN_EAR && openness < deepThreshold) {
+    confirmLiveness('Моргание подтверждено', 'blink');
+    return;
+  }
+
+  // Two-phase fallback for shallower captures: see a partial close, then reopen.
+  if (!liveness.blinkClosed && openness < closedThreshold) {
+    liveness.blinkClosed = true;
+    setVideoStatus('Моргание замечено — откройте глаза');
+    return;
+  }
+
+  if (liveness.blinkClosed && openness > openThreshold) {
+    confirmLiveness('Моргание подтверждено', 'blink');
+  }
+}
+
+function updateBlinkDebug(openness, baseline, deepThreshold) {
+  if (!BLINK_DEBUG) return;
+  if (!blinkDebugEl) {
+    blinkDebugEl = document.createElement('div');
+    blinkDebugEl.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.8);color:#0f0;font:12px monospace;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;';
+    document.body.appendChild(blinkDebugEl);
+  }
+  const ratio = baseline ? openness / baseline : 0;
+  blinkDebugEl.textContent =
+    `EAR=${openness.toFixed(3)} baseline=${baseline.toFixed(3)}\n` +
+    `ratio=${ratio.toFixed(2)} (blink if < ${BLINK_DEEP_RATIO})\n` +
+    `deepThresh=${deepThreshold.toFixed(3)} miss=${quickMissCount}\n` +
+    `closed=${liveness.blinkClosed} confirmed=${liveness.confirmed}`;
+}
+
+function maybeRunFlashCheck(detection, emp) {
+  if (!FLASH_LIVENESS_ENABLED) return;
+  if (flashGuard.running) return;
+  if (flashGuard.confirmed && Date.now() - flashGuard.confirmedAt <= FLASH_VALID_MS) return;
+  if (Date.now() - flashGuard.lastCheckAt < FLASH_COOLDOWN_MS) return;
+  if (!detection || !detection.detection) return;
+  const box = detection.detection.box;
+  if (Math.min(box.width, box.height) < FLASH_MIN_FACE_PX) {
+    setVideoStatus('Подойдите ближе к камере');
+    return;
+  }
+  runFlashCheck(emp, detection);
+}
+
+function showFlash() {
+  const el = document.getElementById('flash-overlay');
+  if (el) el.classList.add('on');
+}
+
+function hideFlash() {
+  const el = document.getElementById('flash-overlay');
+  if (el) el.classList.remove('on');
+}
+
+// Force two paints so the screen actually emits the flash, then let the
+// camera buffer catch up before grabbing frame B.
+function flashSettle(ms) {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, ms)));
+  });
+}
+
+function captureFlashFrame(video, rx, ry, rw, rh) {
+  const S = FLASH_ANALYZE_SIZE;
+  if (!flashCanvas) {
+    flashCanvas = document.createElement('canvas');
+    flashCanvas.width = S;
+    flashCanvas.height = S;
+    flashCtx = flashCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  flashCtx.drawImage(video, rx, ry, rw, rh, 0, 0, S, S);
+  return flashCtx.getImageData(0, 0, S, S).data;
+}
+
+// Eye rectangles (in analysis-space) so glasses glare is excluded from stats.
+function flashEyeBoxes(landmarks, rx, ry, rw, rh) {
+  const S = FLASH_ANALYZE_SIZE;
+  const boxes = [];
+  [landmarks.getLeftEye(), landmarks.getRightEye()].forEach((eye) => {
+    if (!eye || !eye.length) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    eye.forEach((p) => {
+      minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+    });
+    const padX = (maxX - minX) * 0.6;
+    const padY = (maxY - minY) * 0.9;
+    boxes.push({
+      x0: Math.floor((minX - padX - rx) / rw * S),
+      y0: Math.floor((minY - padY - ry) / rh * S),
+      x1: Math.ceil((maxX + padX - rx) / rw * S),
+      y1: Math.ceil((maxY + padY - ry) / rh * S),
+    });
+  });
+  return boxes;
+}
+
+// "Greenness" = G / (R+G+B), scaled ×255. This ratio is invariant to the
+// camera's auto-exposure gain (which scales all channels together), so it
+// survives the auto-exposure that cancels the raw brightness delta. A green
+// flash raises greenness; a 3D face raises it more at the nose/forehead
+// (closer to the screen) than at the edges.
+function greenness(data, i) {
+  const r = data[i], g = data[i + 1], b = data[i + 2];
+  const sum = r + g + b;
+  return sum > 0 ? (g / sum) * 255 : 0;
+}
+
+function analyzeFlashDelta(a, b, eyeBoxes) {
+  const S = FLASH_ANALYZE_SIZE;
+  const cx = (S - 1) / 2;
+  const cy = (S - 1) / 2;
+  const maxR = Math.hypot(cx, cy);
+  // abs = raw green channel (for ambient/reference); g = greenness ratio.
+  let sumGreenA = 0, nA = 0, sumAbsD = 0, n = 0, maxAbsD = -Infinity;
+  let sumGd = 0, gMaxD = -Infinity;
+  let cSum = 0, cN = 0, eSum = 0, eN = 0;
+  const inEye = (x, y) => eyeBoxes.some((eb) => x >= eb.x0 && x <= eb.x1 && y >= eb.y0 && y <= eb.y1);
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      if (inEye(x, y)) continue;
+      const i = (y * S + x) * 4;
+      const greenA = a[i + 1];
+      const absD = b[i + 1] - greenA;
+      const gd = greenness(b, i) - greenness(a, i);
+      sumGreenA += greenA; nA++;
+      sumAbsD += absD; n++;
+      if (absD > maxAbsD) maxAbsD = absD;
+      sumGd += gd;
+      if (gd > gMaxD) gMaxD = gd;
+      const r = Math.hypot(x - cx, y - cy) / maxR;
+      if (r < 0.45) { cSum += gd; cN++; }
+      else if (r > 0.7) { eSum += gd; eN++; }
+    }
+  }
+  const gCenter = cN ? cSum / cN : 0;
+  const gEdge = eN ? eSum / eN : 0;
+  const gMean = n ? sumGd / n : 0;
+  const safeGMax = gMaxD === -Infinity ? 0 : gMaxD;
+  return {
+    meanA: nA ? sumGreenA / nA : 0,
+    meanD: n ? sumAbsD / n : 0,
+    maxD: maxAbsD === -Infinity ? 0 : maxAbsD,
+    gMean,
+    gCenter,
+    gEdge,
+    gGradient: gCenter - gEdge,
+    gMax: safeGMax,
+    gSpikeRatio: safeGMax / Math.max(0.5, gMean),
+  };
+}
+
+function decideFlash(m) {
+  if (m.meanA >= FLASH_AMBIENT_MAX) return { live: false, reason: 'ambient', message: 'Слишком яркий свет — отойдите от окна' };
+  if (m.gMean < FLASH_MIN_GREEN_RISE) return { live: false, reason: 'no-reflection', message: 'Поднесите лицо ближе к экрану' };
+  if (m.gMax >= FLASH_GREEN_SPIKE_MIN && m.gSpikeRatio >= FLASH_GREEN_SPIKE_RATIO) return { live: false, reason: 'specular', message: 'Уберите телефон/экран от камеры' };
+  if (m.gGradient < FLASH_MIN_GREEN_GRADIENT) return { live: false, reason: 'flat', message: 'Похоже на фото — покажите живое лицо' };
+  return { live: true, reason: 'live', message: 'Живое лицо подтверждено' };
+}
+
+function flashConfirm(emp, reason) {
+  flashGuard.confirmed = true;
+  flashGuard.confirmedAt = Date.now();
+  flashGuard.lastReason = reason;
+  if (currentDetected && currentDetected.employee.id === emp.id) {
+    showRecognized(emp, currentDetected.confidence);
+  }
+}
+
+async function runFlashCheck(emp, detection) {
+  flashGuard.running = true;
+  flashGuard.lastCheckAt = Date.now();
+  const video = document.getElementById('video-kiosk');
+  try {
+    if (!video || video.readyState < 2 || !video.videoWidth) { flashConfirm(emp, 'failopen:no-video'); return; }
+    const vw = video.videoWidth;
+    const vh = video.videoHeight;
+    const box = detection.detection.box;
+    const pad = 0.12;
+    const rx = Math.max(0, box.x - box.width * pad);
+    const ry = Math.max(0, box.y - box.height * pad);
+    const rw = Math.min(vw - rx, box.width * (1 + 2 * pad));
+    const rh = Math.min(vh - ry, box.height * (1 + 2 * pad));
+    if (rw < 20 || rh < 20) { flashConfirm(emp, 'failopen:small'); return; }
+
+    const eyeBoxes = flashEyeBoxes(detection.landmarks, rx, ry, rw, rh);
+    const frameA = captureFlashFrame(video, rx, ry, rw, rh);
+    showFlash();
+    await flashSettle(FLASH_SETTLE_MS);
+    const frameB = captureFlashFrame(video, rx, ry, rw, rh);
+    hideFlash();
+
+    const metrics = analyzeFlashDelta(frameA, frameB, eyeBoxes);
+    const decision = decideFlash(metrics);
+    updateFlashDebug(metrics, decision);
+
+    if (decision.live) {
+      flashConfirm(emp, 'live');
+      setVideoStatus('Живое лицо подтверждено');
+    } else {
+      flashGuard.confirmed = false;
+      flashGuard.lastReason = decision.reason;
+      setVideoStatus(decision.message);
+    }
+  } catch (error) {
+    hideFlash();
+    // Never brick attendance on a technical failure — fail open.
+    flashConfirm(emp, 'failopen:error');
+  } finally {
+    flashGuard.running = false;
+  }
+}
+
+function ensureFlashDebug() {
+  if (!FLASH_DEBUG || flashDebugEl) return;
+  flashDebugEl = document.createElement('div');
+  flashDebugEl.style.cssText = 'position:fixed;bottom:8px;left:8px;z-index:99999;background:rgba(0,0,0,0.78);color:#0f0;font:11px monospace;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;';
+  document.body.appendChild(flashDebugEl);
+}
+
+function updateFlashDebug(m, decision) {
+  if (!FLASH_DEBUG) return;
+  ensureFlashDebug();
+  if (!flashDebugEl) return;
+  flashDebugEl.textContent =
+    `ambientA=${m.meanA.toFixed(1)} absDelta=${m.meanD.toFixed(1)}\n` +
+    `greenRise=${m.gMean.toFixed(2)} (>= ${FLASH_MIN_GREEN_RISE})\n` +
+    `gCenter=${m.gCenter.toFixed(2)} gEdge=${m.gEdge.toFixed(2)}\n` +
+    `gGradient=${m.gGradient.toFixed(2)} (>= ${FLASH_MIN_GREEN_GRADIENT})\n` +
+    `gMax=${m.gMax.toFixed(1)} gSpike=${m.gSpikeRatio.toFixed(1)} (< ${FLASH_GREEN_SPIKE_RATIO})\n` +
+    `=> ${decision.reason} ${decision.live ? 'LIVE' : 'REJECT'}`;
+}
+
+function setRecognitionIdle(text) {
+  const block = document.getElementById('recognition');
+  block.className = 'rec-card';
+  document.getElementById('rec-avatar').innerHTML = '<i data-lucide="user"></i>';
+  document.getElementById('rec-name').textContent = 'Поднесите планшет ближе к лицу';
+  document.getElementById('rec-meta').textContent = text || 'После распознавания станут доступны кнопки отметки';
+  setButtons(false);
+  hideLivenessGuide();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function setRecognitionUnknown(text) {
+  const block = document.getElementById('recognition');
+  block.className = 'rec-card unknown';
+  document.getElementById('rec-avatar').innerHTML = '<i data-lucide="user-x"></i>';
+  document.getElementById('rec-name').textContent = text || 'Сотрудник не распознан';
+  document.getElementById('rec-meta').textContent = 'Попробуйте другой ракурс или обновите фото в админке';
+  setButtons(false);
+  hideLivenessGuide();
+  if (window.lucide) window.lucide.createIcons();
+}
+
+function showRecognized(emp, confidence) {
+  const block = document.getElementById('recognition');
+  const verified = isLivenessValid();
+
+  if (!verified) {
+    // Liveness not confirmed yet — the "Проверка личности" overlay is the
+    // only thing visible; don't reveal who was matched behind it.
+    block.className = 'rec-card pending';
+    document.getElementById('rec-avatar').innerHTML = '<i data-lucide="scan-face"></i>';
+    document.getElementById('rec-name').textContent = 'Проверка личности…';
+    document.getElementById('rec-meta').textContent = 'Не убирайте лицо из кадра';
+    setButtons(false, emp);
+    maybeShowLivenessGuide(emp.id);
+    if (window.lucide) window.lucide.createIcons();
+    return;
+  }
+
+  const photo = safePhoto(emp.photo);
+  block.className = 'rec-card found';
+  document.getElementById('rec-avatar').innerHTML = photo ? `<img src="${photo}" alt="">` : escapeHTML(initials(emp));
+  document.getElementById('rec-name').textContent = `${emp.fname} ${emp.lname}`;
+  const role = emp.position || 'Сотрудник';
+  document.getElementById('rec-meta').textContent = `${role} · Распознавание ${confidence}%`;
+  setButtons(true, emp);
+  hideLivenessGuide();
+}
+
+function setButtons(enabled, emp = currentDetected?.employee) {
+  const checkin = document.getElementById('btn-checkin');
+  const checkout = document.getElementById('btn-checkout');
+  const nextAction = emp ? nextActionFor(emp.id) : '';
+  checkin.disabled = !enabled || nextAction !== 'checkin';
+  checkout.disabled = !enabled || nextAction !== 'checkout';
+  checkin.title = nextAction === 'checkin' ? 'Доступно сейчас' : 'Сначала нужен уход';
+  checkout.title = nextAction === 'checkout' ? 'Доступно сейчас' : 'Сначала нужен приход';
+}
+
+async function markAttendance(type) {
+  if (!currentDetected) {
+    toast('Сотрудник не распознан', 'danger');
+    return;
+  }
+  if (!isLivenessValid()) {
+    toast('Моргните, чтобы подтвердить присутствие', 'danger');
+    return;
+  }
+
+  const emp = currentDetected.employee;
+  const now = new Date();
+  const expected = nextActionFor(emp.id);
+  if (type !== expected) {
+    toast(`Сейчас доступно только: ${actionLabel(expected)}`, 'danger');
+    setButtons(true, emp);
+    return;
+  }
+  if (recentDuplicate(emp.id, type, now)) {
+    toast('Такая отметка уже была недавно', 'danger');
+    setButtons(true, emp);
+    return;
+  }
+
+  const isCheckin = type === 'checkin';
+  let isLate = false;
+  if (isCheckin) {
+    const [hour, minute] = String(emp.workStart || '09:00').split(':').map(Number);
+    const limit = new Date(now);
+    limit.setHours(hour, minute + Number(state.settings.lateMinutes || 15), 0, 0);
+    isLate = now > limit;
+  }
+
+  const log = {
+    id: 'l' + Date.now(),
+    empId: emp.id,
+    empName: `${emp.fname} ${emp.lname}`,
+    empPhoto: null,
+    type,
+    time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+    date: now.toLocaleDateString('ru-RU'),
+    ts: now.toISOString(),
+    isLate,
+    verification: FLASH_LIVENESS_ENABLED ? 'flash' : (liveness.method || 'blink'),
+  };
+
+  const saved = await Store.post('addLog', { log });
+  if (!saved) return;
+  noteVisualActivity();
+  showSavedGreeting(`${emp.fname} ${emp.lname}`);
+  resetLiveness(emp.id);
+  setButtons(false);
+}
+
+let greetTimer = null;
+let topbarSubTimer = null;
+
+function showSavedGreeting(empName = '') {
+  document.getElementById('greet-title').textContent = 'Отметка сохранена';
+  document.getElementById('greet-sub').textContent = empName;
+  const layer = document.getElementById('greet-layer');
+  layer.classList.add('visible');
+  if (window.lucide) window.lucide.createIcons();
+  if (greetTimer) clearTimeout(greetTimer);
+  greetTimer = setTimeout(() => layer.classList.remove('visible'), 3500);
+
+  const topSub = document.querySelector('.greeting-sub');
+  if (topSub) {
+    topSub.textContent = savedSubtitleByTime();
+    if (topbarSubTimer) clearTimeout(topbarSubTimer);
+    topbarSubTimer = setTimeout(() => { topSub.textContent = DEFAULT_GREETING_SUB; }, 5000);
+  }
+}
+
+function toast(message, type = '') {
+  const wrap = document.getElementById('toast-wrap');
+  const node = document.createElement('div');
+  node.className = 'toast ' + type;
+  node.textContent = message;
+  wrap.appendChild(node);
+  setTimeout(() => node.remove(), 3600);
+}
+
+// QR-вход в планшет полностью удалён — киоск открывается напрямую.
+// Заодно сносим любой застрявший Service Worker, чтобы старая закэшированная
+// страница больше не могла перехватывать загрузку.
+function unregisterServiceWorkers() {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister()))
+      .catch(() => {});
+  }
+}
+
+async function loadCompanyInfo() {
+  try {
+    const res = await fetch(API + 'companyInfo', { cache: 'no-store' });
+    const data = await res.json();
+    if (data.ok && data.company?.name) {
+      document.getElementById('brand-label').textContent = data.company.name;
+      document.title = `${data.company.name} — планшет`;
+    }
+  } catch {}
+}
+
+window.addEventListener('load', () => {
+  unregisterServiceWorkers();
+  updateClock();
+  setInterval(updateClock, 1000);
+  Store.load();
+  loadCompanyInfo();
+  setInterval(() => Store.load(), 20000);
+  window.addEventListener('online', () => { flushQueue(); });
+  if (window.lucide) window.lucide.createIcons();
+  startCamera();
+});
+</script>
+</body>
+</html>

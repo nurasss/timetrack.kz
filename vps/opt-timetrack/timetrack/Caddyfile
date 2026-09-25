@@ -1,0 +1,10 @@
+{
+    email {$ACME_EMAIL:ops@example.invalid}
+    admin {$CADDY_ADMIN_ADDRESS:127.0.0.1:2019}
+}
+
+{$TIMETRACK_DOMAIN:timetrack.example}, {$TIMETRACK_WWW_DOMAIN:www.timetrack.example} {
+    import staged/timetrack.caddy
+}
+
+import staged/legacy-sites.caddy

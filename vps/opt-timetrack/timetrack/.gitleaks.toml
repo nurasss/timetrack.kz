@@ -1,0 +1,21 @@
+title = "Timetrack deployment secret scan"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Local evidence and immutable deployment artifacts"
+paths = [
+  '''(?i)(^|/)(backups|\.ops-backups|volumes_extracted|certs|keys)(/|$)''',
+  '''(?i)(^|/)(docker-compose\.prod\.yml\.(backup|bak)|Caddyfile\.(backup|bak|before))''',
+  '''(?i)(^|/)(\.env($|\.)|[^/]+\.(key|pem|p12|pfx|jks|sql|dump|sqlite|sqlite3|db|log|tar|tar\.gz|tgz|zip|7z)$)''',
+]
+
+[[allowlists]]
+description = "Application development defaults outside deployment"
+paths = [
+  '''apps/api/app/core/config\.py''',
+]
+regexes = [
+  '''(?i)(change-me|timetrack123|localhost)''',
+]

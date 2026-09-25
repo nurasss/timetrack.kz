@@ -1,0 +1,2436 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#f6f4f1">
+<script>
+(function() {
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches
+    || window.matchMedia('(display-mode: minimal-ui)').matches
+    || window.navigator.standalone === true
+    || (document.referrer && document.referrer.indexOf('android-app://') === 0)
+    || window.location.search.indexOf('mode=pwa') !== -1;
+
+  if (isStandalone && window.location.search.indexOf('landing=1') === -1) {
+    try {
+      var savedAdminUrl = localStorage.getItem('timetrack_last_admin_url');
+      var savedSlug = localStorage.getItem('timetrack_last_company_slug');
+      if (savedAdminUrl) {
+        window.location.replace(savedAdminUrl);
+        return;
+      } else if (savedSlug) {
+        window.location.replace('admin.html?c=' + encodeURIComponent(savedSlug));
+        return;
+      } else {
+        window.location.replace('login.html');
+        return;
+      }
+    } catch (e) {
+      window.location.replace('login.html');
+    }
+  }
+})();
+</script>
+<title>Timetrack — Современное решение для учета рабочего времени</title>
+<meta name="description" content="Timetrack автоматически фиксирует рабочее время, опоздания и переработки сотрудников с подтверждением личности.">
+<link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2">
+<link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2" media="(prefers-color-scheme: light)">
+<link rel="icon" type="image/svg+xml" href="favicon-dark.svg?v=20260904-2" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="landing.webmanifest?v=20260904-1">
+<link rel="apple-touch-icon" href="favicon-new.png?v=20260904-2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
+<script defer src="https://unpkg.com/lucide@1.26.0/dist/umd/lucide.min.js" integrity="sha384-8/6sFI5UzGbr1Dgef7WSZvE4UemcVc/jyaQNsM+MilmnHQ9sce/pRv86XXj5Cg5m" crossorigin="anonymous"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --page-bg: #f7f5f1;
+    --hero-bg: #ebe7e2;
+    --card-bg: #ebe7e2;
+    --card-bg-light: #f0ece7;
+    --text-primary: #1c1c1c;
+    --text-secondary: #555555;
+    --text-muted: #777777;
+    --blue-primary: #2563eb;
+    --blue-hover: #1d4ed8;
+    --green-primary: #22c55e;
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.06);
+    --radius-lg: 24px;
+    --radius-md: 20px;
+    --radius-sm: 12px;
+    --max-width: 1280px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  section[id] { scroll-margin-top: 88px; }
+  body {
+    background-color: var(--page-bg);
+    color: var(--text-primary);
+    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; border: none; cursor: pointer; background: none; }
+  a, button, summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.35);
+    outline-offset: 3px;
+  }
+
+  .container {
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* Header Navigation */
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(235, 231, 226, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 18px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 34px;
+    height: 34px;
+    position: relative;
+  }
+
+  .logo-text {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #1c1c1c;
+  }
+
+  .nav-menu {
+    display: flex;
+    align-items: center;
+    gap: 36px;
+  }
+
+  .nav-link {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: color 0.15s ease;
+  }
+  .nav-link:hover, .nav-link.active {
+    color: var(--blue-primary);
+  }
+
+  .menu-toggle {
+    display: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-primary);
+  }
+
+  .pwa-install-header-btn {
+    display: none;
+  }
+
+  .mobile-menu {
+    display: none;
+  }
+
+  .mobile-install-notice {
+    display: none;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .lang-switch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    color: var(--text-muted);
+  }
+  .lang-btn {
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 2px 4px;
+    transition: color 0.15s ease;
+  }
+  .lang-btn.active {
+    color: var(--blue-primary);
+    font-weight: 700;
+  }
+
+  .footer-lang-switch {
+    display: none;
+  }
+
+  .btn-primary {
+    background: var(--blue-primary);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+  }
+  .btn-primary:hover {
+    background: var(--blue-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+  }
+
+  .btn-link {
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-decoration: underline;
+    font-size: 16px;
+    padding: 12px 16px;
+    transition: color 0.15s ease;
+  }
+  .btn-link:hover {
+    color: var(--blue-primary);
+  }
+
+  /* Hero Section */
+  .hero-section {
+    padding: 56px 0 76px;
+    background: var(--hero-bg);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+    gap: 32px;
+    align-items: center;
+    transform: translateY(-28px);
+    margin-bottom: -28px;
+  }
+
+  .hero-title {
+    font-size: clamp(46px, 4.15vw, 64px);
+    font-weight: 500;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+  }
+
+  .hero-subtitle {
+    font-size: 17px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    max-width: 560px;
+  }
+
+  .hero-buttons {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .hero-tablet-mockup {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+  }
+
+  .hero-tablet-mockup img {
+    width: 118%;
+    max-width: 800px;
+    margin-right: -18%;
+    filter: drop-shadow(0 20px 40px rgba(0,0,0,0.12));
+    display: block;
+  }
+
+  .tablet-recommendation {
+    position: absolute;
+    top: 18px;
+    right: -10px;
+    bottom: auto;
+    left: auto;
+    z-index: 3;
+    width: min(390px, 68%);
+    padding: 14px 18px 14px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.88), rgba(241,238,234,0.7));
+    box-shadow:
+      0 18px 42px rgba(35, 43, 59, 0.16),
+      inset 0 1px 0 rgba(255,255,255,0.96);
+    backdrop-filter: blur(20px) saturate(155%);
+    -webkit-backdrop-filter: blur(20px) saturate(155%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .tablet-recommendation-icon {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(145deg, #3770ef, var(--blue-primary));
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .tablet-recommendation-icon svg {
+    width: 21px;
+    height: 21px;
+    stroke-width: 2;
+  }
+
+  .tablet-recommendation-copy {
+    min-width: 0;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.35;
+  }
+
+  .tablet-recommendation-copy strong {
+    display: block;
+    margin-bottom: 2px;
+    color: var(--blue-primary);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tablet-frame {
+    position: relative;
+    width: 100%;
+    max-width: 580px;
+    background: #0d0d0d;
+    border-radius: 36px;
+    padding: 16px;
+    box-shadow: 0 30px 70px rgba(0, 0, 0, 0.22);
+    border: 3px solid #2a2a2a;
+  }
+
+  .tablet-screen {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 16px;
+    background-image: url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=800&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
+  }
+
+  .tablet-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.3);
+  }
+
+  .screen-header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #fff;
+  }
+
+  .screen-logo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .screen-clock {
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .screen-liveness {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+    margin-bottom: 12px;
+  }
+
+  .screen-actions {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: 1fr 44px 1fr;
+    gap: 10px;
+  }
+
+  .screen-btn {
+    padding: 14px;
+    border-radius: 12px;
+    color: #fff;
+    font-weight: 700;
+    font-size: 14px;
+    text-align: center;
+  }
+  .screen-btn.arrive { background: var(--green-primary); }
+  .screen-btn.leave { background: rgba(37, 99, 235, 0.7); }
+  .screen-btn.reload { background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; }
+
+  /* Hands holding tablet simulation */
+  .hands-overlay {
+    position: absolute;
+    inset: -20px -40px;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 10% 50%, rgba(0,0,0,0.05), transparent 40%),
+                      radial-gradient(circle at 90% 50%, rgba(0,0,0,0.05), transparent 40%);
+  }
+
+  /* Features Section */
+  .features-section {
+    padding: 104px 0 84px;
+  }
+
+  .section-header-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-bottom: 50px;
+    align-items: flex-start;
+  }
+
+  .section-title {
+    font-size: clamp(42px, 4vw, 62px);
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+  }
+
+  .section-desc-box {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .section-desc-box p { margin-bottom: 12px; }
+  .section-desc-box ul { list-style: none; padding: 0; }
+  .section-desc-box li {
+    position: relative;
+    padding-left: 18px;
+    margin-bottom: 6px;
+  }
+  .section-desc-box li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: var(--text-primary);
+    font-weight: bold;
+  }
+
+  .timesheet-download-link {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 14px;
+    color: #000000;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  .timesheet-download-link:hover {
+    color: #000000;
+    opacity: 0.72;
+  }
+
+  /* Feature Cards Grid (2x2) */
+  .features-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+
+  .feature-card {
+    background: var(--card-bg);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    border-radius: var(--radius-lg);
+    padding: 38px;
+    display: flex;
+    align-items: center;
+    min-height: 240px;
+    aspect-ratio: 564 / 220;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .feature-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+  }
+
+  .feature-content {
+    max-width: 62%;
+    z-index: 2;
+  }
+
+  .feature-card--shield {
+    background-image: url('landing-assets/feature-shield-card.png');
+  }
+
+  .feature-card--lightning {
+    background-image: url('landing-assets/feature-lightning-card.png');
+  }
+
+  .feature-card--calendar {
+    background-image: url('landing-assets/feature-calendar-card.png');
+  }
+
+  .feature-card--person {
+    background-image: url('landing-assets/feature-person-card.png');
+  }
+
+  .feature-card-title {
+    font-size: 25px;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--text-primary);
+    margin-bottom: 14px;
+  }
+
+  .feature-card-sub {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+  }
+
+  .feature-icon-3d {
+    width: 190px;
+    height: 190px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+  }
+
+  .feature-icon-3d svg {
+    width: 80px;
+    height: 80px;
+    filter: drop-shadow(0 10px 15px rgba(0,0,0,0.12));
+  }
+
+  .feature-icon-3d img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Audience Section (Blue Banner) */
+  .audience-section {
+    padding: 72px 0 92px;
+  }
+
+  .audience-card {
+    background: var(--blue-primary);
+    border-radius: var(--radius-lg);
+    padding: 64px;
+    color: #ffffff;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    align-items: flex-start;
+    box-shadow: 0 20px 50px rgba(37, 99, 235, 0.3);
+  }
+
+  .audience-title {
+    font-size: clamp(44px, 4.2vw, 68px);
+    font-weight: 500;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+  }
+
+  .audience-content-title {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 24px;
+    opacity: 0.95;
+  }
+
+  .audience-list {
+    list-style: none;
+    margin-bottom: 40px;
+  }
+
+  .audience-list li {
+    font-size: 18px;
+    margin-bottom: 10px;
+    position: relative;
+    padding-left: 20px;
+  }
+  .audience-list li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: #ffffff;
+  }
+
+  .audience-buttons {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .btn-white {
+    background: #ffffff;
+    color: var(--blue-primary);
+    font-weight: 700;
+    font-size: 16px;
+    padding: 14px 28px;
+    border-radius: 12px;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+  .btn-white:hover {
+    background: #f0f4ff;
+    transform: translateY(-1px);
+  }
+
+  .btn-link-white {
+    color: #ffffff;
+    font-weight: 500;
+    text-decoration: underline;
+    font-size: 16px;
+    padding: 12px 16px;
+  }
+
+  /* Frequently Asked Questions */
+  .faq-section {
+    padding: 54px 0 72px;
+  }
+
+  .faq-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: 64px;
+    align-items: start;
+  }
+
+  .faq-intro {
+    position: sticky;
+    top: 112px;
+  }
+
+  .faq-lead {
+    max-width: 420px;
+    margin-top: 18px;
+    color: var(--text-secondary);
+    font-size: 17px;
+    line-height: 1.6;
+  }
+
+  .faq-list {
+    border-top: 1px solid rgba(28, 28, 28, 0.14);
+  }
+
+  .faq-item {
+    border-bottom: 1px solid rgba(28, 28, 28, 0.14);
+  }
+
+  .faq-question {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: center;
+    padding: 26px 0;
+    cursor: pointer;
+    list-style: none;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+
+  .faq-question::-webkit-details-marker { display: none; }
+
+  .faq-icon {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--blue-primary);
+    background: rgba(37, 99, 235, 0.09);
+    transition: transform 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+  }
+
+  .faq-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .faq-item[open] .faq-icon {
+    color: #ffffff;
+    background: var(--blue-primary);
+    transform: rotate(45deg);
+  }
+
+  .faq-answer {
+    max-width: 720px;
+    padding: 0 60px 26px 0;
+    color: var(--text-secondary);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  /* Pricing Section */
+  .pricing-section {
+    padding: 54px 0 110px;
+  }
+
+  .pricing-card {
+    background: var(--card-bg);
+    border-radius: var(--radius-lg);
+    padding: 42px;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 32px;
+    align-items: start;
+  }
+
+  .pricing-employees {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    align-self: start;
+  }
+
+  .pricing-employees .counter-box {
+    margin-top: 53px;
+  }
+
+  .pricing-col-label {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .counter-box {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .counter-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.06);
+    color: var(--text-primary);
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+  }
+  .counter-btn:hover { background: rgba(0,0,0,0.12); }
+
+  .counter-value-wrap {
+    border-bottom: 2px solid var(--text-primary);
+    padding: 0 16px 4px;
+  }
+
+  .counter-value {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .price-display {
+    font-size: 42px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  .pricing-price-block {
+    text-align: center;
+  }
+
+  .billing-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 5px;
+    margin: 0 0 18px;
+  }
+
+  .billing-option {
+    appearance: none;
+    border: 1px solid #d8d4d0;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    color: var(--text-main);
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 10px 9px;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+
+  .billing-option:hover {
+    border-color: #99938d;
+  }
+
+  .billing-option.active {
+    background: var(--blue-primary);
+    border-color: var(--blue-primary);
+    color: #fff;
+  }
+
+  .pricing-price-row {
+    display: grid;
+    grid-template-columns: max-content;
+    align-items: flex-start;
+    justify-content: center;
+  }
+
+  .savings-note {
+    color: var(--blue-primary);
+    font-size: 14px;
+    font-weight: 500;
+    grid-column: 1;
+    margin-top: 8px;
+    text-align: center;
+  }
+
+  .pricing-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-self: center;
+    width: max-content;
+    max-width: 100%;
+    padding-top: 85px;
+    gap: 10px;
+  }
+
+  .pricing-action .btn-primary {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Footer */
+  .footer {
+    background: #ebe7e2;
+    padding: 70px 0 54px;
+    border-top: 1px solid rgba(0,0,0,0.05);
+  }
+
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1.5fr;
+    gap: 40px;
+    margin-bottom: 40px;
+  }
+
+  .footer-brand p {
+    margin-top: 16px;
+    color: var(--text-secondary);
+    font-size: 15px;
+    max-width: 260px;
+  }
+
+  .footer-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .footer-nav a {
+    color: var(--text-secondary);
+    font-size: 15px;
+    font-weight: 500;
+    transition: color 0.15s ease;
+  }
+  .footer-nav a:hover { color: var(--blue-primary); }
+
+  .footer-contact {
+    font-size: 15px;
+    color: var(--text-primary);
+  }
+
+  .footer-contact-item {
+    margin-bottom: 16px;
+  }
+
+  .footer-contact-item p {
+    font-weight: 500;
+  }
+
+  .footer-contact-item a {
+    color: var(--text-primary);
+    text-decoration: underline;
+    font-size: 14px;
+  }
+
+  .footer-phones {
+    margin-top: 20px;
+  }
+
+  .footer-phone {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: block;
+    margin-bottom: 6px;
+    transition: color 0.15s ease;
+    text-decoration: none;
+  }
+  .footer-phone:hover {
+    color: var(--blue-primary);
+    text-decoration: underline;
+  }
+
+  /* Modals */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(6px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-overlay.visible { display: flex; }
+
+  .modal-card {
+    background: #ffffff;
+    border-radius: 24px;
+    width: min(480px, 100%);
+    padding: 36px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    position: relative;
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .modal-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .modal-sub {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 24px;
+  }
+
+  .form-group {
+    margin-bottom: 16px;
+  }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text-primary);
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  .form-input:focus { border-color: var(--blue-primary); }
+
+  .video-modal-card {
+    width: min(960px, 100%);
+    padding: 0;
+    overflow: hidden;
+    background: #111827;
+    color: #fff;
+    animation: videoModalIn 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .video-modal-card.is-portrait-video {
+    width: min(460px, 100%);
+  }
+
+  .video-modal-card .modal-close {
+    z-index: 2;
+    top: 16px;
+    right: 16px;
+    color: #fff;
+    background: rgba(255,255,255,0.14);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .video-modal-heading {
+    padding: 22px 72px 18px 24px;
+  }
+
+  .video-modal-heading h2 {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .video-modal-frame {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background: #000;
+  }
+
+  .video-modal-frame.is-portrait-video {
+    aspect-ratio: 9 / 16;
+    max-height: calc(100vh - 116px);
+  }
+
+  .video-modal-frame iframe,
+  .video-modal-frame video {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #000;
+  }
+
+  .video-modal-frame video {
+    object-fit: contain;
+  }
+
+  .video-modal-frame [hidden] {
+    display: none;
+  }
+
+  .timesheet-modal-card {
+    width: min(1280px, 100%);
+    height: min(72vh, 640px);
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .timesheet-modal-heading {
+    flex: 0 0 auto;
+    padding: 22px 72px 18px 24px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  .timesheet-modal-heading h2 {
+    font-size: 24px;
+    font-weight: 700;
+  }
+
+  .timesheet-preview-frame {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    border: 0;
+    background: #f8fafc;
+  }
+
+  .footer-demo-button {
+    color: var(--blue-primary);
+    font-size: 14px;
+    font-weight: 700;
+    text-align: left;
+  }
+
+  @keyframes videoModalIn {
+    from { opacity: 0; transform: translateY(18px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* Responsive Design */
+  @media (max-width: 992px) {
+    .hero-grid, .section-header-grid, .features-grid, .audience-card, .faq-layout, .footer-grid {
+      grid-template-columns: 1fr;
+      gap: 32px;
+    }
+    .faq-intro { position: static; }
+    .hero-grid {
+      transform: none;
+      margin-bottom: 0;
+    }
+    .pricing-card {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+    .counter-box { justify-content: center; }
+    .pricing-price-block { text-align: center; }
+    .billing-options { justify-content: center; }
+    .pricing-price-row { justify-content: center; }
+    .pricing-employees .counter-box { margin-top: 0; }
+    .pricing-action { align-items: center; padding-top: 0; }
+    .hero-title, .section-title, .audience-title {
+      font-size: 34px;
+    }
+    .hero-tablet-mockup img {
+      width: 100%;
+      margin-right: 0;
+    }
+    .hero-tablet-mockup {
+      flex-direction: column;
+      align-items: center;
+    }
+    .tablet-recommendation {
+      position: relative;
+      top: auto;
+      right: auto;
+      left: auto;
+      bottom: auto;
+      width: min(100%, 440px);
+      margin: -18px auto 0;
+    }
+  }
+
+  @media (max-width: 760px) {
+    .container { padding: 0 18px; }
+    .header { padding: 12px 0; }
+    .header .logo img { height: 30px !important; }
+    .nav-menu { display: none; }
+    .menu-toggle { display: none; }
+    .header-actions { gap: 8px; }
+    .header-actions .btn-primary { padding: 10px 15px; font-size: 14px; }
+    .header .lang-switch { display: none; }
+    .footer-lang-switch {
+      display: flex;
+      width: max-content;
+      margin-top: 22px;
+      padding: 5px;
+      gap: 4px;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.55);
+    }
+    .footer-lang-switch .lang-btn {
+      min-width: 54px;
+      padding: 8px 13px;
+      border-radius: 999px;
+      text-align: center;
+    }
+    .footer-lang-switch .lang-btn.active {
+      color: #ffffff;
+      background: var(--blue-primary);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.22);
+    }
+    .pwa-install-header-btn {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      padding: 0;
+      border: 1px solid rgba(255,255,255,0.8);
+      border-radius: 12px;
+      color: var(--blue-primary);
+      background: rgba(255,255,255,0.66);
+      box-shadow: 0 7px 18px rgba(37,99,235,0.14), inset 0 1px 0 rgba(255,255,255,0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: transform 0.18s ease, background-color 0.18s ease;
+    }
+    .pwa-install-header-btn:active {
+      transform: scale(0.94);
+      background: rgba(255,255,255,0.9);
+    }
+    .pwa-install-header-btn.is-hidden { display: none; }
+    .pwa-install-header-btn svg { width: 19px; height: 19px; stroke-width: 2.2; }
+    .mobile-menu {
+      --mobile-nav-index: 0;
+      --mobile-nav-left: 8px;
+      --mobile-nav-width: calc((100% - 16px) / 4);
+      display: flex;
+      position: fixed;
+      left: 50%;
+      right: auto;
+      bottom: max(14px, env(safe-area-inset-bottom));
+      z-index: 200;
+      width: calc(100% - 24px);
+      max-width: 420px;
+      min-height: 70px;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 24px;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.72), rgba(235,231,226,0.46));
+      box-shadow:
+        0 18px 50px rgba(28, 28, 28, 0.18),
+        0 4px 12px rgba(28, 28, 28, 0.08),
+        inset 0 1px 0 rgba(255,255,255,0.94),
+        inset 0 -1px 0 rgba(255,255,255,0.22);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      transform: translateX(-50%);
+      isolation: isolate;
+      overflow: hidden;
+    }
+    .mobile-menu::before {
+      content: '';
+      position: absolute;
+      z-index: 0;
+      top: 8px;
+      left: var(--mobile-nav-left);
+      width: var(--mobile-nav-width);
+      height: calc(100% - 16px);
+      border: 1px solid rgba(255,255,255,0.48);
+      border-radius: 18px;
+      background:
+        linear-gradient(145deg, rgba(55, 112, 239, 0.96), rgba(37, 99, 235, 0.82));
+      box-shadow:
+        0 8px 22px rgba(37, 99, 235, 0.3),
+        inset 0 1px 0 rgba(255,255,255,0.34),
+        inset 0 -8px 20px rgba(29,78,216,0.16);
+      transition:
+        left 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+        width 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mobile-menu::after {
+      content: '';
+      position: absolute;
+      inset: 1px 14% auto;
+      z-index: 0;
+      height: 20px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.58), transparent);
+      filter: blur(7px);
+      pointer-events: none;
+    }
+    .mobile-menu .mobile-nav-link {
+      position: relative;
+      z-index: 1;
+      flex: 1 1 0;
+      min-width: 0;
+      min-height: 54px;
+      padding: 7px 4px 6px;
+      border-radius: 18px;
+      color: #625f5b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1.1;
+      text-align: center;
+      transition: color 0.3s ease, transform 0.3s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mobile-menu .mobile-nav-link svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2;
+      transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .mobile-menu .mobile-nav-link.active {
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    .mobile-menu .mobile-nav-link.active svg {
+      transform: translateY(-2px) scale(1.1);
+    }
+    .mobile-menu .mobile-nav-link:active {
+      transform: scale(0.96);
+    }
+    .mobile-install-notice {
+      position: fixed;
+      left: 16px;
+      right: 16px;
+      top: 80px;
+      z-index: 190;
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.78);
+      border-radius: 18px;
+      background: rgba(255,255,255,0.78);
+      box-shadow: 0 14px 34px rgba(25,38,68,0.18);
+      backdrop-filter: blur(18px) saturate(1.25);
+      -webkit-backdrop-filter: blur(18px) saturate(1.25);
+      animation: mobile-install-notice-in 0.55s cubic-bezier(0.22,1,0.36,1) both;
+      touch-action: none;
+      will-change: transform, opacity;
+    }
+    .mobile-install-notice.is-hidden { display: none; }
+    .mobile-install-notice-icon {
+      display: grid;
+      width: 40px;
+      height: 40px;
+      place-items: center;
+      border-radius: 13px;
+      color: #fff;
+      background: var(--blue-primary);
+      box-shadow: 0 8px 18px rgba(37,99,235,0.28);
+    }
+    .mobile-install-notice-icon svg { width: 20px; height: 20px; }
+    .mobile-install-notice-copy { min-width: 0; }
+    .mobile-install-notice-title {
+      display: block;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+    .mobile-install-notice-cta {
+      margin-top: 7px;
+      padding: 0;
+      border: 0;
+      color: var(--blue-primary);
+      background: transparent;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      cursor: pointer;
+    }
+    .mobile-install-notice.is-leaving {
+      opacity: 0;
+      transform: translateY(-120%) scale(0.98);
+      transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.55,0,1,0.45);
+      pointer-events: none;
+    }
+    @keyframes mobile-install-notice-in {
+      from { opacity: 0; transform: translateY(-120%) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .hero-section { padding: 38px 0 16px; }
+    .hero-grid { gap: 16px; }
+    .hero-tablet-mockup { margin-top: -52px; }
+    .hero-title { font-size: clamp(38px, 11vw, 52px); }
+    .hero-subtitle { font-size: 16px; margin-bottom: 28px; }
+    .hero-buttons { align-items: stretch; }
+    .tablet-recommendation {
+      width: 100%;
+      margin-top: -10px;
+      padding: 13px 14px 13px 12px;
+      border-radius: 18px;
+    }
+    .tablet-recommendation-icon {
+      flex-basis: 40px;
+      width: 40px;
+      height: 40px;
+      border-radius: 13px;
+    }
+    .tablet-recommendation-copy { font-size: 13px; }
+    .video-modal-card { border-radius: 20px; }
+    .video-modal-heading { padding: 18px 58px 14px 18px; }
+    .video-modal-heading h2 { font-size: 20px; }
+    .video-modal-card .modal-close { top: 10px; right: 10px; }
+    .timesheet-modal-card {
+      height: min(78vh, 680px);
+      border-radius: 20px;
+    }
+    .timesheet-modal-heading { padding: 18px 58px 14px 18px; }
+    .timesheet-modal-heading h2 { font-size: 18px; }
+    .timesheet-modal-card .modal-close { top: 10px; right: 10px; }
+    .features-section { padding: 32px 0 24px; }
+    .section-header-grid { margin-bottom: 34px; }
+    .feature-card {
+      min-height: 270px;
+      padding: 28px;
+      aspect-ratio: auto;
+      background-image: none;
+      isolation: isolate;
+    }
+    .feature-card::after {
+      content: '';
+      position: absolute;
+      top: 62%;
+      right: -6px;
+      z-index: 1;
+      width: 176px;
+      height: 166px;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
+      transform: translateY(-50%);
+      -webkit-mask-image: radial-gradient(ellipse 72% 72% at 52% 50%, #000 48%, rgba(0,0,0,0.8) 64%, transparent 100%);
+      mask-image: radial-gradient(ellipse 72% 72% at 52% 50%, #000 48%, rgba(0,0,0,0.8) 64%, transparent 100%);
+      pointer-events: none;
+    }
+    .feature-card--shield::after { background-image: url('landing-assets/mobile-feature-shield.png'); }
+    .feature-card--lightning::after { background-image: url('landing-assets/mobile-feature-lightning.png'); }
+    .feature-card--calendar::after { background-image: url('landing-assets/mobile-feature-calendar.png'); }
+    .feature-card--person::after { background-image: url('landing-assets/mobile-feature-person.png'); }
+    .feature-card--person .timesheet-download-link {
+      position: absolute;
+      left: 28px;
+      bottom: 28px;
+      z-index: 2;
+      margin-top: 0;
+      color: #000000;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+    .feature-card--person .timesheet-download-link:hover { color: #000000; }
+    .feature-card-title { font-size: 22px; }
+    .feature-icon-3d { width: 132px; height: 132px; margin-right: -18px; }
+    .audience-section { padding: 20px 0 24px; }
+    .audience-card { padding: 34px 28px; }
+    .audience-buttons { flex-wrap: wrap; }
+    .faq-section { padding: 28px 0 32px; }
+    .faq-layout { gap: 26px; }
+    .faq-lead { margin-top: 12px; font-size: 15px; }
+    .faq-question { gap: 14px; padding: 20px 0; font-size: 18px; }
+    .faq-answer { padding: 0 48px 22px 0; font-size: 15px; }
+    .pricing-section { padding: 20px 0 72px; }
+    .pricing-card { padding: 28px 20px; }
+    .pricing-price-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .price-display { white-space: normal; }
+    .footer { padding: 50px 0 124px; }
+  }
+
+  @media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+    .mobile-menu::before,
+    .mobile-menu .mobile-nav-link,
+    .mobile-menu .mobile-nav-link svg {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .hero-buttons { flex-direction: column; }
+    .hero-buttons .btn-link { text-align: center; }
+    .feature-card { min-height: 330px; align-items: flex-start; }
+    .feature-content { max-width: 70%; }
+    .feature-icon-3d {
+      position: absolute;
+      right: 12px;
+      bottom: 4px;
+      width: 150px;
+      height: 150px;
+    }
+    .audience-title { font-size: 38px; }
+    .audience-buttons { flex-direction: column; align-items: stretch; }
+    .btn-white, .btn-link-white { text-align: center; }
+    .footer-grid { gap: 34px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- Yandex.Metrika counter -->
+  <script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+      m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+      m[i].l=1*new Date();
+      for (var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
+      k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a);
+    })(window,document,'script','https://mc.yandex.ru/metrika/tag.js?id=111411851','ym');
+
+    ym(111411851,'init',{ssr:true,webvisor:true,clickmap:true,ecommerce:'dataLayer',referrer:document.referrer,url:location.href,accurateTrackBounce:true,trackLinks:true});
+  </script>
+  <noscript><div><img src="https://mc.yandex.ru/watch/111411851" style="position:absolute; left:-9999px;" alt=""></div></noscript>
+  <!-- /Yandex.Metrika counter -->
+
+  <!-- Header Navigation -->
+  <header class="header">
+    <div class="container header-inner">
+      <a href="index.html" class="logo">
+        <img src="logo-black.svg?v=20260812-1" alt="Timetrack" style="height: 32px; width: auto; display: block;">
+      </a>
+
+      <nav class="nav-menu">
+        <a href="#features" class="nav-link">Возможности</a>
+        <a href="#audience" class="nav-link">Кому подойдет</a>
+        <a href="#faq" class="nav-link">Частые вопросы</a>
+        <a href="#pricing" class="nav-link">Тарифы</a>
+      </nav>
+
+      <div class="header-actions">
+        <div class="lang-switch">
+          <button class="lang-btn" data-lang="kaz" onclick="setLang('kaz', this)">Қаз</button>
+          <button class="lang-btn active" data-lang="rus" onclick="setLang('rus', this)">Рус</button>
+        </div>
+        <a href="login.html" class="btn-primary" id="login-link">Войти</a>
+        <button type="button" class="pwa-install-header-btn is-hidden" aria-label="Установить приложение Timetrack" title="Установить приложение" onclick="installPwa()">
+          <i data-lucide="download"></i>
+        </button>
+        <button class="menu-toggle" type="button" aria-label="Открыть меню" aria-expanded="false" onclick="toggleMenu(this)">
+          <i data-lucide="menu"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+  <nav class="mobile-menu" id="mobile-menu" aria-label="Мобильная навигация">
+    <a class="mobile-nav-link active" data-nav-index="0" href="#features" aria-current="page" onclick="lockMobileNav(0)">
+      <i data-lucide="sparkles"></i>
+      <span>Возможности</span>
+    </a>
+    <a class="mobile-nav-link" data-nav-index="1" href="#audience" onclick="lockMobileNav(1)">
+      <i data-lucide="users"></i>
+      <span>Кому подойдет</span>
+    </a>
+    <a class="mobile-nav-link" data-nav-index="2" href="#faq" onclick="lockMobileNav(2)">
+      <i data-lucide="circle-help"></i>
+      <span>FAQ</span>
+    </a>
+    <a class="mobile-nav-link" data-nav-index="3" href="#pricing" onclick="lockMobileNav(3)">
+      <i data-lucide="credit-card"></i>
+      <span>Тарифы</span>
+    </a>
+  </nav>
+
+  <aside class="mobile-install-notice is-hidden" id="mobile-install-notice" aria-live="polite">
+    <span class="mobile-install-notice-icon" aria-hidden="true"><i data-lucide="download"></i></span>
+    <span class="mobile-install-notice-copy">
+      <strong class="mobile-install-notice-title">Установите Timetrack, чтобы иметь доступ в одно нажатие</strong>
+      <button type="button" class="mobile-install-notice-cta" onclick="installPwa()">Установить</button>
+    </span>
+  </aside>
+
+  <!-- Hero Section -->
+  <section class="hero-section">
+    <div class="container hero-grid">
+      <div class="hero-text">
+        <h1 class="hero-title">Автоматический учет рабочего времени без ручных табелей</h1>
+        <p class="hero-subtitle">
+          Контролируйте рабочее время сотрудников без ручных проверок. Точные данные, готовые табели и полный контроль рабочего времени в одной системе.
+        </p>
+        <div class="hero-buttons">
+          <button type="button" class="btn-primary" onclick="openDemoModal()">Как это работает</button>
+          <a href="https://wa.me/77054345148?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B8%D1%82%D1%8C%20%D0%BA%D0%BE%D0%BD%D1%81%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%86%D0%B8%D1%8E%20%D0%BF%D0%BE%20%D0%BF%D1%80%D0%B8%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8E%20timetrack" class="btn-link" target="_blank" rel="noopener">Получить консультацию</a>
+        </div>
+      </div>
+
+      <div class="hero-tablet-mockup">
+        <img src="tablet-hero-figma.png" alt="Интерфейс Timetrack на планшете">
+        <aside class="tablet-recommendation" aria-label="Рекомендуемые модели планшетов">
+          <span class="tablet-recommendation-icon" aria-hidden="true">
+            <i data-lucide="tablet"></i>
+          </span>
+          <p class="tablet-recommendation-copy">
+            <strong>Рекомендуем</strong>
+            Samsung Galaxy Tab A9+, Redmi Pad SE или Lenovo Tab M11
+          </p>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="features-section" id="features">
+    <div class="container">
+      <div class="section-header-grid">
+        <h2 class="section-title">Возможности</h2>
+        <div class="section-desc-box">
+          <p>Программа предоставляет возможность легко и быстро фиксировать присутствие сотрудников.</p>
+          <p style="font-weight: 500; margin-bottom: 6px;">Всего 3 шага:</p>
+          <ul>
+            <li>делаем селфи в приложении Timetrack</li>
+            <li>подтверждаем морганием или поворотом головы</li>
+            <li>нажимаем кнопку прибытия или ухода</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="features-grid">
+        <!-- Card 1 -->
+        <div class="feature-card feature-card--shield">
+          <div class="feature-content">
+            <h3 class="feature-card-title">Надежная защита от подмены личности и фальсификации отметок</h3>
+            <p class="feature-card-sub">
+              Подтверждение морганием или поворотом головы отсекает любую возможность «обмануть» приложение
+            </p>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="feature-card feature-card--lightning">
+          <div class="feature-content">
+            <h3 class="feature-card-title">Мгновенная передача данных в систему учёта</h3>
+            <p class="feature-card-sub">
+              Timetrack автоматически передает данные о времени прибытия и ухода сотрудников в табель.
+            </p>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="feature-card feature-card--calendar">
+          <div class="feature-content">
+            <h3 class="feature-card-title">Внедрение за 1 день без остановки бизнес-процессов</h3>
+            <p class="feature-card-sub">
+              Для внедрения Timetrack нужен только планшет для установки приложения и 1 компьютер/ноутбук для доступа в кабинет администратора
+            </p>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="feature-card feature-card--person">
+          <div class="feature-content">
+            <h3 class="feature-card-title">Учёт рабочего времени без ручного заполнения табелей</h3>
+            <p class="feature-card-sub">
+              Это исключает любую возможность ошибки и избавляет HR или бухгалтера от лишней работы.
+            </p>
+            <button type="button" class="timesheet-download-link" onclick="openTimesheetModal()">Пример готового табеля для 1С</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Audience Section -->
+  <section class="audience-section" id="audience">
+    <div class="container">
+      <div class="audience-card">
+        <h2 class="audience-title">Для каких компаний подойдет:</h2>
+
+        <div>
+          <div class="audience-content-title">Наше решение легко адаптируется под любые компании</div>
+          <ul class="audience-list">
+            <li>Офисы</li>
+            <li>Call-центры</li>
+            <li>IT-компании</li>
+            <li>Логистические компании</li>
+            <li>Производственные предприятия</li>
+            <li>Розничная торговля</li>
+          </ul>
+
+          <div class="audience-buttons">
+            <button type="button" class="btn-white" onclick="openDemoModal()">Как это работает</button>
+            <a href="https://wa.me/77054345148?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B8%D1%82%D1%8C%20%D0%BA%D0%BE%D0%BD%D1%81%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%86%D0%B8%D1%8E%20%D0%BF%D0%BE%20%D0%BF%D1%80%D0%B8%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8E%20timetrack" class="btn-link-white" target="_blank" rel="noopener">Получить консультацию</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq-section" id="faq">
+    <div class="container faq-layout">
+      <div class="faq-intro">
+        <h2 class="section-title">Частые вопросы</h2>
+        <p class="faq-lead">Коротко о способе отметки, защите данных и работе Timetrack без интернета.</p>
+      </div>
+
+      <div class="faq-list">
+        <details class="faq-item" open>
+          <summary class="faq-question">
+            <span>Почему распознавание лица, а не карты или отпечатки пальцев?</span>
+            <span class="faq-icon" aria-hidden="true"><i data-lucide="plus"></i></span>
+          </summary>
+          <p class="faq-answer">Распознавание лица — самый простой и эффективный способ идентификации. Для отметки нужен только планшет с камерой — не требуются карты, брелоки или дополнительное оборудование. Сотрудник смотрит в камеру, поворачивает голову или моргает, чтобы система могла подтвердить, что перед ней живой человек, а не фотография. Отметка проходит бесконтактно и занимает несколько секунд.</p>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">
+            <span>Где хранятся биометрические данные и как они защищены?</span>
+            <span class="faq-icon" aria-hidden="true"><i data-lucide="plus"></i></span>
+          </summary>
+          <p class="faq-answer">Данные сотрудников не передаются сторонним сервисам или организациям. Распознавание лица выполняется внутри Timetrack: фотография сотрудника и данные, необходимые для распознавания, хранятся на сервере системы. Доступ к данным защищён, а подключить планшет к системе можно только с помощью специального ключа.</p>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">
+            <span>Работает ли Timetrack без интернета?</span>
+            <span class="faq-icon" aria-hidden="true"><i data-lucide="plus"></i></span>
+          </summary>
+          <p class="faq-answer">Да. Отметки сохраняются на устройстве и автоматически отправляются на сервер после восстановления связи.</p>
+        </details>
+
+        <details class="faq-item">
+          <summary class="faq-question">
+            <span>Есть ли мобильное приложение для сотрудников?</span>
+            <span class="faq-icon" aria-hidden="true"><i data-lucide="plus"></i></span>
+          </summary>
+          <p class="faq-answer">Нет. Отдельного мобильного приложения для сотрудников на данном этапе нет.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section class="pricing-section" id="pricing">
+    <div class="container">
+      <h2 class="section-title" style="margin-bottom: 36px;">Тарифы</h2>
+
+      <div class="pricing-card">
+        <div class="pricing-employees">
+          <div class="pricing-col-label">Количество сотрудников</div>
+          <div class="counter-box">
+            <button class="counter-btn" onclick="stepTier(-1)" title="Меньше сотрудников" aria-label="Меньше сотрудников"><i data-lucide="minus"></i></button>
+            <div class="counter-value-wrap">
+              <span class="counter-value" id="emp-count">10</span>
+            </div>
+            <button class="counter-btn" onclick="stepTier(1)" title="Больше сотрудников" aria-label="Больше сотрудников"><i data-lucide="plus"></i></button>
+          </div>
+        </div>
+
+        <div class="pricing-price-block">
+          <div class="pricing-col-label">Цена</div>
+          <div class="billing-options" role="group" aria-label="Период оплаты">
+            <button class="billing-option" type="button" data-period="1" onclick="setBillingPeriod(1)" aria-pressed="false">1 месяц</button>
+            <button class="billing-option" type="button" data-period="6" onclick="setBillingPeriod(6)" aria-pressed="false">6 месяцев</button>
+            <button class="billing-option active" type="button" data-period="12" onclick="setBillingPeriod(12)" aria-pressed="true">12 месяцев</button>
+          </div>
+          <div class="pricing-price-row">
+            <div class="price-display" id="price-display">36 000 ₸/12 мес</div>
+            <div class="savings-note" id="savings-badge">Экономия 9 000 ₸</div>
+          </div>
+        </div>
+
+        <div class="pricing-action">
+          <a id="connect-tariff-link" href="https://wa.me/77054345148?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%2C%20%D1%85%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%83%D1%87%D0%B5%D1%82%20%D1%80%D0%B0%D0%B1%D0%BE%D1%87%D0%B5%D0%B3%D0%BE%20%D0%B2%D1%80%D0%B5%D0%BC%D0%B5%D0%BD%D0%B8%20timetrack.%20%D0%AF%20%D0%B2%D1%8B%D0%B1%D1%80%D0%B0%D0%BB%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%D0%BD%D0%B0%2010%20%D1%87%D0%B5%D0%BB%D0%BE%D0%B2%D0%B5%D0%BA%2C%20%D1%81%D1%80%D0%BE%D0%BA%D0%BE%D0%BC%20%D0%BD%D0%B0%2012%20%D0%BC%D0%B5%D1%81%D1%8F%D1%86%D0%B5%D0%B2" class="btn-primary" target="_blank" rel="noopener" style="font-size: 15px; padding: 12px 24px;">Подключить тариф</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="logo">
+            <img src="logo-black.svg?v=20260812-1" alt="Timetrack" style="height: 34px; width: auto; display: block;">
+          </a>
+          <p>Приложение для учета рабочего времени сотрудников</p>
+          <div class="lang-switch footer-lang-switch" aria-label="Язык сайта">
+            <button type="button" class="lang-btn" data-lang="kaz" onclick="setLang('kaz')">Қаз</button>
+            <button type="button" class="lang-btn active" data-lang="rus" onclick="setLang('rus')">Рус</button>
+          </div>
+        </div>
+
+        <div class="footer-nav">
+          <a href="#features">Возможности</a>
+          <a href="#audience">Кому подойдет</a>
+          <a href="#faq">Частые вопросы</a>
+          <a href="#pricing">Тарифы</a>
+          <button type="button" class="footer-demo-button" onclick="openDemoModal()">Как это работает</button>
+        </div>
+
+        <div class="footer-contact">
+          <div class="footer-contact-item">
+            <p>Адрес: г. Астана, ул. Аскар Токпанов, 8</p>
+            <a href="https://go.2gis.com/Ls7E7" target="_blank" rel="noopener">Посмотреть на карте</a>
+          </div>
+
+          <div class="footer-phones">
+            <a href="tel:+77009111213" class="footer-phone">+7 700 911 12 13</a>
+            <a href="https://wa.me/77054345148?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B8%D1%82%D1%8C%20%D0%BA%D0%BE%D0%BD%D1%81%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%86%D0%B8%D1%8E%20%D0%BF%D0%BE%20%D0%BF%D1%80%D0%B8%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8E%20timetrack" class="footer-phone" target="_blank" rel="noopener">+7 705 434 51 48 <span style="font-size: 13px; font-weight: normal; color: inherit; margin-left: 4px;">(WhatsApp)</span></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <div class="modal-overlay" id="demo-modal" role="dialog" aria-modal="true" aria-labelledby="demo-modal-title" onclick="closeDemoModal()">
+    <div class="modal-card video-modal-card" id="demo-modal-card" onclick="event.stopPropagation()">
+      <button type="button" class="modal-close" aria-label="Закрыть видео" onclick="closeDemoModal()">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="video-modal-heading">
+        <h2 id="demo-modal-title">Как это работает</h2>
+      </div>
+      <div class="video-modal-frame" id="demo-video-frame">
+        <video
+          id="demo-local-video"
+          title="Как работает Timetrack"
+          controls
+          playsinline
+          preload="metadata"
+          hidden>
+        </video>
+        <iframe
+          id="demo-youtube-video"
+          title="Как работает Timetrack"
+          src=""
+          allow="autoplay; encrypted-media; picture-in-picture"
+          allowfullscreen
+          hidden>
+        </iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="timesheet-modal" role="dialog" aria-modal="true" aria-labelledby="timesheet-modal-title" onclick="closeTimesheetModal()">
+    <div class="modal-card timesheet-modal-card" onclick="event.stopPropagation()">
+      <button type="button" class="modal-close" aria-label="Закрыть табель" onclick="closeTimesheetModal()">
+        <i data-lucide="x"></i>
+      </button>
+      <div class="timesheet-modal-heading">
+        <h2 id="timesheet-modal-title">Пример готового табеля для 1С</h2>
+      </div>
+      <iframe
+        class="timesheet-preview-frame"
+        id="timesheet-preview"
+        title="Пример табеля для 1С"
+        src="">
+      </iframe>
+    </div>
+  </div>
+
+  <script>
+    const KAZAKH_TRANSLATIONS = {
+      'Возможности': 'Мүмкіндіктер',
+      'Кому подойдет': 'Кімге арналған',
+      'Частые вопросы': 'Жиі қойылатын сұрақтар',
+      'Тарифы': 'Тарифтер',
+      'Войти': 'Кіру',
+      'Установите Timetrack, чтобы иметь доступ в одно нажатие': 'Timetrack-ті бір рет түрту арқылы ашу үшін орнатыңыз',
+      'Установить': 'Орнату',
+      'Автоматический учет рабочего времени без ручных табелей': 'Қолмен табель толтырмай жұмыс уақытын автоматты есепке алу',
+      'Контролируйте рабочее время сотрудников без ручных проверок. Точные данные, готовые табели и полный контроль рабочего времени в одной системе.': 'Қызметкерлердің жұмыс уақытын қолмен тексерусіз бақылаңыз. Дәл деректер, дайын табельдер және бір жүйедегі жұмыс уақытын толық бақылау.',
+      'Рекомендуем': 'Ұсынамыз',
+      'Samsung Galaxy Tab A9+, Redmi Pad SE или Lenovo Tab M11': 'Samsung Galaxy Tab A9+, Redmi Pad SE немесе Lenovo Tab M11',
+      'Как это работает': 'Бұл қалай жұмыс істейді',
+      'Получить консультацию': 'Кеңес алу',
+      'Программа предоставляет возможность легко и быстро фиксировать присутствие сотрудников.': 'Бағдарлама қызметкерлердің қатысуын оңай әрі жылдам тіркеуге мүмкіндік береді.',
+      'Всего 3 шага:': 'Бар болғаны 3 қадам:',
+      'делаем селфи в приложении Timetrack': 'Timetrack қосымшасында селфи жасаймыз',
+      'подтверждаем морганием или поворотом головы': 'көзді жыпылықтату немесе басты бұру арқылы растаймыз',
+      'нажимаем кнопку прибытия или ухода': 'келу немесе кету түймесін басамыз',
+      'Надежная защита от подмены личности и фальсификации отметок': 'Тұлғаны ауыстырудан және белгілерді бұрмалаудан сенімді қорғау',
+      'Подтверждение морганием или поворотом головы отсекает любую возможность «обмануть» приложение': 'Көзді жыпылықтату немесе басты бұру арқылы растау қосымшаны «алдау» мүмкіндігін толық жояды',
+      'Мгновенная передача данных в систему учёта': 'Деректерді есеп жүйесіне лезде жіберу',
+      'Timetrack автоматически передает данные о времени прибытия и ухода сотрудников в табель.': 'Timetrack қызметкерлердің келу және кету уақыты туралы деректерді табельге автоматты түрде жібереді.',
+      'Внедрение за 1 день без остановки бизнес-процессов': 'Бизнес-процестерді тоқтатпай 1 күнде енгізу',
+      'Для внедрения Timetrack нужен только планшет для установки приложения и 1 компьютер/ноутбук для доступа в кабинет администратора': 'Timetrack енгізу үшін қосымшаны орнататын планшет және әкімші кабинетіне кіруге арналған 1 компьютер/ноутбук жеткілікті',
+      'Учёт рабочего времени без ручного заполнения табелей': 'Табельдерді қолмен толтырмай жұмыс уақытын есепке алу',
+      'Это исключает любую возможность ошибки и избавляет HR или бухгалтера от лишней работы.': 'Бұл қателесу мүмкіндігін жояды және HR маманын немесе бухгалтерді артық жұмыстан босатады.',
+      'Пример готового табеля для 1С': '1С үшін дайын табель үлгісі',
+      'Для каких компаний подойдет:': 'Қандай компанияларға арналған:',
+      'Наше решение легко адаптируется под любые компании': 'Біздің шешім кез келген компанияға оңай бейімделеді',
+      'Офисы': 'Кеңселер',
+      'Call-центры': 'Call-орталықтар',
+      'IT-компании': 'IT-компаниялар',
+      'Логистические компании': 'Логистикалық компаниялар',
+      'Производственные предприятия': 'Өндірістік кәсіпорындар',
+      'Розничная торговля': 'Бөлшек сауда',
+      'Коротко о способе отметки, защите данных и работе Timetrack без интернета.': 'Белгілеу тәсілі, деректерді қорғау және Timetrack-тің интернетсіз жұмысы туралы қысқаша.',
+      'Почему распознавание лица, а не карты или отпечатки пальцев?': 'Неліктен карта немесе саусақ ізі емес, бетті тану қолданылады?',
+      'Распознавание лица — самый простой и эффективный способ идентификации. Для отметки нужен только планшет с камерой — не требуются карты, брелоки или дополнительное оборудование. Сотрудник смотрит в камеру, поворачивает голову или моргает, чтобы система могла подтвердить, что перед ней живой человек, а не фотография. Отметка проходит бесконтактно и занимает несколько секунд.': 'Бетті тану — сәйкестендірудің ең қарапайым әрі тиімді тәсілі. Белгілену үшін камерасы бар планшет қана қажет — карталар, салпыншақтар немесе қосымша жабдық керек емес. Жүйе алдында фотосурет емес, тірі адам тұрғанын растауы үшін қызметкер камераға қарап, басын бұрады немесе көзін жыпылықтатады. Белгілеу жанасусыз өтеді және бірнеше секундты алады.',
+      'Где хранятся биометрические данные и как они защищены?': 'Биометриялық деректер қайда сақталады және қалай қорғалады?',
+      'Данные сотрудников не передаются сторонним сервисам или организациям. Распознавание лица выполняется внутри Timetrack: фотография сотрудника и данные, необходимые для распознавания, хранятся на сервере системы. Доступ к данным защищён, а подключить планшет к системе можно только с помощью специального ключа.': 'Қызметкерлердің деректері бөгде сервистерге немесе ұйымдарға берілмейді. Бетті тану Timetrack ішінде орындалады: қызметкердің фотосуреті және тануға қажетті деректер жүйе серверінде сақталады. Деректерге қол жеткізу қорғалған, ал планшетті жүйеге тек арнайы кілт арқылы қосуға болады.',
+      'Работает ли Timetrack без интернета?': 'Timetrack интернетсіз жұмыс істей ме?',
+      'Да. Отметки сохраняются на устройстве и автоматически отправляются на сервер после восстановления связи.': 'Иә. Белгілер құрылғыда сақталып, байланыс қалпына келгеннен кейін серверге автоматты түрде жіберіледі.',
+      'Есть ли мобильное приложение для сотрудников?': 'Қызметкерлерге арналған мобильді қолданба бар ма?',
+      'Нет. Отдельного мобильного приложения для сотрудников на данном этапе нет.': 'Жоқ. Қазіргі кезеңде қызметкерлерге арналған бөлек мобильді қолданба жоқ.',
+      'Количество сотрудников': 'Қызметкерлер саны',
+      'Цена': 'Бағасы',
+      '1 месяц': '1 ай',
+      '6 месяцев': '6 ай',
+      '12 месяцев': '12 ай',
+      'Подключить тариф': 'Тарифті қосу',
+      'Приложение для учета рабочего времени сотрудников': 'Қызметкерлердің жұмыс уақытын есепке алуға арналған қосымша',
+      'Адрес: г. Астана, ул. Аскар Токпанов, 8': 'Мекенжай: Астана қ., Асқар Тоқпанов көш., 8',
+      'Посмотреть на карте': 'Картадан көру'
+    };
+
+    const KAZAKH_ATTRIBUTES = {
+      'Мобильная навигация': 'Мобильді навигация',
+      'Открыть меню': 'Мәзірді ашу',
+      'Закрыть меню': 'Мәзірді жабу',
+      'Меньше сотрудников': 'Қызметкерлер санын азайту',
+      'Больше сотрудников': 'Қызметкерлер санын көбейту',
+      'Период оплаты': 'Төлем мерзімі',
+      'Интерфейс Timetrack на планшете': 'Планшеттегі Timetrack интерфейсі',
+      'Рекомендуемые модели планшетов': 'Ұсынылатын планшет үлгілері',
+      'Язык сайта': 'Сайт тілі',
+      'Закрыть видео': 'Видеоны жабу',
+      'Как работает Timetrack': 'Timetrack қалай жұмыс істейді',
+      'Закрыть табель': 'Табельді жабу',
+      'Пример табеля для 1С': '1С үшін табель үлгісі'
+    };
+
+    const staticTextOriginal = new WeakMap();
+    const staticAttributeOriginal = new WeakMap();
+    const TIERS = [
+      { count: 10, workpace: 45000 },
+      { count: 20, workpace: 85000 },
+      { count: 50, workpace: 200000 }
+    ];
+
+    let currentTierIdx = 0;
+    let currentBillingPeriod = 12;
+    let currentLanguage = 'rus';
+    let deferredPwaInstallPrompt = null;
+    let mobileInstallNoticeTimer = null;
+    let mobileInstallSwipeStart = null;
+    let mobileInstallNoticeShownInMemory = false;
+    const MOBILE_INSTALL_NOTICE_SESSION_KEY = 'timetrack_mobile_install_notice_shown';
+    const PWA_INSTALLED_STORAGE_KEY = 'timetrack_pwa_installed';
+
+    function translateStaticText(lang) {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const parentTag = node.parentElement?.tagName;
+        if (parentTag === 'SCRIPT' || parentTag === 'STYLE') continue;
+        if (!staticTextOriginal.has(node)) staticTextOriginal.set(node, node.nodeValue);
+        const original = staticTextOriginal.get(node);
+        const trimmed = original.trim();
+        const translated = lang === 'kaz' ? KAZAKH_TRANSLATIONS[trimmed] : null;
+        node.nodeValue = translated ? original.replace(trimmed, translated) : original;
+      }
+    }
+
+    function translateStaticAttributes(lang) {
+      document.querySelectorAll('[aria-label], [title], [alt]').forEach((element) => {
+        if (!staticAttributeOriginal.has(element)) {
+          staticAttributeOriginal.set(element, {
+            ariaLabel: element.getAttribute('aria-label'),
+            title: element.getAttribute('title'),
+            alt: element.getAttribute('alt')
+          });
+        }
+        const original = staticAttributeOriginal.get(element);
+        ['ariaLabel', 'title', 'alt'].forEach((key) => {
+          const attributeName = key === 'ariaLabel' ? 'aria-label' : key;
+          const originalValue = original[key];
+          if (originalValue === null) return;
+          element.setAttribute(attributeName, lang === 'kaz'
+            ? (KAZAKH_ATTRIBUTES[originalValue] || originalValue)
+            : originalValue);
+        });
+      });
+    }
+
+    function stepTier(direction) {
+      currentTierIdx = Math.max(0, Math.min(TIERS.length - 1, currentTierIdx + direction));
+      renderPricing();
+    }
+
+    function setBillingPeriod(months) {
+      currentBillingPeriod = months;
+      document.querySelectorAll('.billing-option').forEach((button) => {
+        const isActive = Number(button.dataset.period) === months;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+      renderPricing();
+    }
+
+    function renderPricing() {
+      const tier = TIERS[currentTierIdx];
+      const discount = currentBillingPeriod === 12 ? 0.2 : currentBillingPeriod === 6 ? 0.1 : 0;
+      const fullPeriodPrice = (tier.workpace / 12) * currentBillingPeriod;
+      const periodPrice = Math.round(fullPeriodPrice * (1 - discount));
+      const savings = Math.round(fullPeriodPrice - periodPrice);
+      const isKazakh = currentLanguage === 'kaz';
+      const locale = 'ru-RU';
+      const periodLabel = isKazakh
+        ? (currentBillingPeriod === 1 ? 'ай' : `${currentBillingPeriod} ай`)
+        : (currentBillingPeriod === 1 ? 'мес' : `${currentBillingPeriod} мес`);
+
+      document.getElementById('emp-count').textContent = tier.count;
+      document.getElementById('price-display').textContent = `${periodPrice.toLocaleString(locale)} ₸/${periodLabel}`;
+      document.getElementById('savings-badge').textContent = discount === 0
+        ? (isKazakh ? 'Жеңілдіксіз' : 'Без скидки')
+        : `${isKazakh ? 'Үнем' : 'Экономия'} ${savings.toLocaleString(locale)} ₸`;
+
+      const connectTariffLink = document.getElementById('connect-tariff-link');
+      if (connectTariffLink) {
+        const periodWord = isKazakh
+          ? 'ай'
+          : (currentBillingPeriod === 1 ? 'месяц' : 'месяцев');
+        const message = 'Здравствуйте, я хочу подключить систему учета рабочего времени Timetrack';
+        connectTariffLink.href = `https://wa.me/77054345148?text=${encodeURIComponent(message)}`;
+      }
+    }
+
+    function updateConsultationLinks() {
+      const isKazakh = currentLanguage === 'kaz';
+      const message = isKazakh
+        ? 'Сәлеметсіз бе! Timetrack қосымшасы бойынша кеңес алғым келеді'
+        : 'Здравствуйте, я хочу подключить систему учета рабочего времени Timetrack';
+      document.querySelectorAll(`a[href^="https://wa.me/77054345148"]`).forEach((link) => {
+        if (link.id === 'connect-tariff-link') return;
+        link.href = `https://wa.me/77054345148?text=${encodeURIComponent(message)}`;
+      });
+    }
+
+    function applyLanguage(lang, persist = true) {
+      currentLanguage = lang === 'kaz' ? 'kaz' : 'rus';
+      document.documentElement.lang = currentLanguage === 'kaz' ? 'kk' : 'ru';
+      document.title = currentLanguage === 'kaz'
+        ? 'Timetrack — Жұмыс уақытын есепке алудың заманауи шешімі'
+        : 'Timetrack — Современное решение для учета рабочего времени';
+      document.querySelectorAll('.lang-btn').forEach((button) => {
+        const isActive = button.dataset.lang === currentLanguage;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-pressed', String(isActive));
+      });
+      translateStaticText(currentLanguage);
+      translateStaticAttributes(currentLanguage);
+      updateConsultationLinks();
+      renderPricing();
+      const loginLink = document.getElementById('login-link');
+      if (loginLink) {
+        loginLink.href = currentLanguage === 'kaz' ? 'login.html?lang=kaz' : 'login.html';
+      }
+      if (persist) {
+        try {
+          localStorage.setItem('timetrack-language', currentLanguage);
+        } catch (error) {
+          // The language switch still works when storage is unavailable.
+        }
+      }
+    }
+
+    function setLang(lang) {
+      applyLanguage(lang, true);
+    }
+
+    function initializeLanguage() {
+      let savedLanguage = null;
+      try {
+        savedLanguage = localStorage.getItem('timetrack-language');
+      } catch (error) {
+        savedLanguage = null;
+      }
+      const browserLanguage = (navigator.language || '').toLowerCase();
+      const initialLanguage = savedLanguage === 'kaz' || savedLanguage === 'rus'
+        ? savedLanguage
+        : (browserLanguage.startsWith('kk') || browserLanguage.startsWith('kz') ? 'kaz' : 'rus');
+      applyLanguage(initialLanguage, false);
+    }
+
+    initializeLanguage();
+
+    let demoModalTrigger = null;
+    let timesheetModalTrigger = null;
+    const DEMO_YOUTUBE_URL = 'https://www.youtube-nocookie.com/embed/oUd7lVwUk4M?autoplay=1&rel=0&modestbranding=1&playsinline=1&iv_load_policy=3';
+    const DEMO_RU_DESKTOP_URL = 'videos/how-it-works-ru-desktop.mp4?v=20260803-1';
+    const DEMO_RU_MOBILE_URL = 'videos/how-it-works-ru-mobile.mp4?v=20260803-1';
+    const DEMO_KZ_DESKTOP_URL = 'videos/how-it-works-kz-desktop.mp4?v=20260803-1';
+    const DEMO_KZ_MOBILE_URL = 'videos/how-it-works-kz-mobile.mp4?v=20260803-1';
+    const DEMO_LOCAL_VIDEO_URLS = {
+      rus: { desktop: DEMO_RU_DESKTOP_URL, mobile: DEMO_RU_MOBILE_URL },
+      kaz: { desktop: DEMO_KZ_DESKTOP_URL, mobile: DEMO_KZ_MOBILE_URL },
+    };
+
+    function openDemoModal() {
+      const modal = document.getElementById('demo-modal');
+      const card = document.getElementById('demo-modal-card');
+      const frame = document.getElementById('demo-video-frame');
+      const localVideo = document.getElementById('demo-local-video');
+      const youtubeVideo = document.getElementById('demo-youtube-video');
+      if (!modal || !card || !frame || !localVideo || !youtubeVideo) return;
+
+      demoModalTrigger = document.activeElement;
+      const localVideoUrls = DEMO_LOCAL_VIDEO_URLS[currentLanguage];
+      const useLocalVideo = Boolean(localVideoUrls);
+      const usePortraitVideo = useLocalVideo && window.matchMedia('(max-width: 760px)').matches;
+
+      card.classList.toggle('is-portrait-video', usePortraitVideo);
+      frame.classList.toggle('is-portrait-video', usePortraitVideo);
+      localVideo.hidden = !useLocalVideo;
+      youtubeVideo.hidden = useLocalVideo;
+
+      if (useLocalVideo) {
+        youtubeVideo.src = '';
+        localVideo.src = usePortraitVideo ? localVideoUrls.mobile : localVideoUrls.desktop;
+        localVideo.load();
+      } else {
+        localVideo.pause();
+        localVideo.removeAttribute('src');
+        localVideo.load();
+        youtubeVideo.src = DEMO_YOUTUBE_URL;
+      }
+
+      modal.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      if (useLocalVideo) {
+        localVideo.play().catch(() => {
+          // Controls remain available if a browser blocks autoplay.
+        });
+      }
+      modal.querySelector('.modal-close')?.focus();
+    }
+
+    function closeDemoModal() {
+      const modal = document.getElementById('demo-modal');
+      const card = document.getElementById('demo-modal-card');
+      const frame = document.getElementById('demo-video-frame');
+      const localVideo = document.getElementById('demo-local-video');
+      const youtubeVideo = document.getElementById('demo-youtube-video');
+      if (!modal || !localVideo || !youtubeVideo || !modal.classList.contains('visible')) return;
+
+      modal.classList.remove('visible');
+      localVideo.pause();
+      localVideo.removeAttribute('src');
+      localVideo.load();
+      youtubeVideo.src = '';
+      localVideo.hidden = true;
+      youtubeVideo.hidden = true;
+      card?.classList.remove('is-portrait-video');
+      frame?.classList.remove('is-portrait-video');
+      document.body.style.overflow = '';
+      if (demoModalTrigger && typeof demoModalTrigger.focus === 'function') {
+        demoModalTrigger.focus();
+      }
+      demoModalTrigger = null;
+    }
+
+    document.getElementById('demo-local-video')?.addEventListener('ended', closeDemoModal);
+
+    function openTimesheetModal() {
+      const modal = document.getElementById('timesheet-modal');
+      const preview = document.getElementById('timesheet-preview');
+      if (!modal || !preview) return;
+      timesheetModalTrigger = document.activeElement;
+      preview.src = 'downloads/primer-tabelya-timetrack.html?v=20260801-1';
+      modal.classList.add('visible');
+      document.body.style.overflow = 'hidden';
+      modal.querySelector('.modal-close')?.focus();
+    }
+
+    function closeTimesheetModal() {
+      const modal = document.getElementById('timesheet-modal');
+      const preview = document.getElementById('timesheet-preview');
+      if (!modal || !preview || !modal.classList.contains('visible')) return;
+      modal.classList.remove('visible');
+      preview.src = '';
+      document.body.style.overflow = '';
+      if (timesheetModalTrigger && typeof timesheetModalTrigger.focus === 'function') {
+        timesheetModalTrigger.focus();
+      }
+      timesheetModalTrigger = null;
+    }
+
+    let mobileNavLockedIndex = null;
+    let mobileNavUnlockTimer = null;
+
+    function syncMobileNavIndicator(mobileMenu, activeLink) {
+      if (!mobileMenu || !activeLink || activeLink.offsetWidth === 0) return;
+      mobileMenu.style.setProperty('--mobile-nav-left', `${activeLink.offsetLeft}px`);
+      mobileMenu.style.setProperty('--mobile-nav-width', `${activeLink.offsetWidth}px`);
+    }
+
+    function setMobileNavActive(index) {
+      const mobileMenu = document.getElementById('mobile-menu');
+      if (!mobileMenu) return;
+      const safeIndex = Math.max(0, Math.min(3, Number(index) || 0));
+      mobileMenu.style.setProperty('--mobile-nav-index', safeIndex);
+      let activeLink = null;
+      mobileMenu.querySelectorAll('.mobile-nav-link').forEach((link) => {
+        const isActive = Number(link.dataset.navIndex) === safeIndex;
+        link.classList.toggle('active', isActive);
+        if (isActive) {
+          activeLink = link;
+          link.setAttribute('aria-current', 'page');
+        } else {
+          link.removeAttribute('aria-current');
+        }
+      });
+      syncMobileNavIndicator(mobileMenu, activeLink);
+    }
+
+    function lockMobileNav(index) {
+      const safeIndex = Math.max(0, Math.min(3, Number(index) || 0));
+      mobileNavLockedIndex = safeIndex;
+      setMobileNavActive(safeIndex);
+      window.clearTimeout(mobileNavUnlockTimer);
+      mobileNavUnlockTimer = window.setTimeout(() => {
+        mobileNavLockedIndex = null;
+      }, 1500);
+    }
+
+    function toggleMenu(button) {
+      const menu = document.getElementById('mobile-menu');
+      const isOpen = menu.classList.toggle('open');
+      button.setAttribute('aria-expanded', String(isOpen));
+      button.setAttribute('aria-label', currentLanguage === 'kaz'
+        ? (isOpen ? 'Мәзірді жабу' : 'Мәзірді ашу')
+        : (isOpen ? 'Закрыть меню' : 'Открыть меню'));
+      button.innerHTML = `<i data-lucide="${isOpen ? 'x' : 'menu'}"></i>`;
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeMenu() {
+      const menu = document.getElementById('mobile-menu');
+      const button = document.querySelector('.menu-toggle');
+      menu.classList.remove('open');
+      if (button) {
+        button.setAttribute('aria-expanded', 'false');
+        button.setAttribute('aria-label', currentLanguage === 'kaz' ? 'Мәзірді ашу' : 'Открыть меню');
+        button.innerHTML = '<i data-lucide="menu"></i>';
+      }
+      if (window.lucide) window.lucide.createIcons();
+    }
+
+    function closeMobileInstallNotice() {
+      const notice = document.getElementById('mobile-install-notice');
+      window.clearTimeout(mobileInstallNoticeTimer);
+      if (!notice || notice.classList.contains('is-hidden')) return;
+      notice.style.animation = 'none';
+      notice.style.transition = '';
+      notice.style.transform = '';
+      notice.style.opacity = '';
+      void notice.offsetWidth;
+      notice.classList.add('is-leaving');
+      window.setTimeout(() => {
+        notice.classList.add('is-hidden');
+        notice.classList.remove('is-leaving');
+      }, 460);
+    }
+
+    function isPwaRunningStandalone() {
+      return window.matchMedia('(display-mode: standalone)').matches
+        || window.matchMedia('(display-mode: fullscreen)').matches
+        || window.navigator.standalone === true
+        || document.referrer.startsWith('android-app://');
+    }
+
+    function rememberPwaInstallation() {
+      try {
+        window.localStorage.setItem(PWA_INSTALLED_STORAGE_KEY, '1');
+      } catch {
+        // Standalone detection still works when storage is unavailable.
+      }
+    }
+
+    function forgetPwaInstallation() {
+      try {
+        window.localStorage.removeItem(PWA_INSTALLED_STORAGE_KEY);
+      } catch {
+        // The install prompt itself remains the source of truth.
+      }
+    }
+
+    function hasKnownPwaInstallation() {
+      if (isPwaRunningStandalone()) {
+        rememberPwaInstallation();
+        return true;
+      }
+      try {
+        return window.localStorage.getItem(PWA_INSTALLED_STORAGE_KEY) === '1';
+      } catch {
+        return false;
+      }
+    }
+
+    function syncPwaInstallUi() {
+      const isInstalled = hasKnownPwaInstallation();
+      document.querySelectorAll('.pwa-install-header-btn').forEach((button) => {
+        button.classList.toggle('is-hidden', isInstalled);
+      });
+      if (isInstalled) {
+        const notice = document.getElementById('mobile-install-notice');
+        window.clearTimeout(mobileInstallNoticeTimer);
+        notice?.classList.add('is-hidden');
+        notice?.classList.remove('is-leaving');
+      }
+      return isInstalled;
+    }
+
+    function claimMobileInstallNoticeForVisit() {
+      if (!window.matchMedia('(max-width: 760px)').matches) return false;
+      if (hasKnownPwaInstallation()) return false;
+      try {
+        if (window.sessionStorage.getItem(MOBILE_INSTALL_NOTICE_SESSION_KEY) === '1') return false;
+        window.sessionStorage.setItem(MOBILE_INSTALL_NOTICE_SESSION_KEY, '1');
+        return true;
+      } catch {
+        if (mobileInstallNoticeShownInMemory) return false;
+        mobileInstallNoticeShownInMemory = true;
+        return true;
+      }
+    }
+
+    function showMobileInstallNoticeOnce() {
+      const notice = document.getElementById('mobile-install-notice');
+      if (!notice || !claimMobileInstallNoticeForVisit()) return;
+      notice.classList.remove('is-hidden', 'is-leaving');
+      initMobileInstallNoticeSwipe();
+      mobileInstallNoticeTimer = window.setTimeout(closeMobileInstallNotice, 6500);
+    }
+
+    function initMobileInstallNoticeSwipe() {
+      const notice = document.getElementById('mobile-install-notice');
+      if (!notice) return;
+
+      notice.addEventListener('pointerdown', (event) => {
+        window.clearTimeout(mobileInstallNoticeTimer);
+        mobileInstallSwipeStart = {
+          pointerId: event.pointerId,
+          x: event.clientX,
+          y: event.clientY
+        };
+        notice.style.animation = 'none';
+        notice.style.transition = 'none';
+        notice.setPointerCapture?.(event.pointerId);
+      });
+      notice.addEventListener('pointermove', (event) => {
+        if (!mobileInstallSwipeStart || event.pointerId !== mobileInstallSwipeStart.pointerId) return;
+        const deltaY = Math.min(0, event.clientY - mobileInstallSwipeStart.y);
+        notice.style.transform = `translate3d(0, ${deltaY}px, 0)`;
+        notice.style.opacity = String(Math.max(0.25, 1 + deltaY / 140));
+      });
+      notice.addEventListener('pointerup', (event) => {
+        if (!mobileInstallSwipeStart || event.pointerId !== mobileInstallSwipeStart.pointerId) return;
+        const deltaY = event.clientY - mobileInstallSwipeStart.y;
+        mobileInstallSwipeStart = null;
+        notice.releasePointerCapture?.(event.pointerId);
+        if (deltaY < -40) {
+          closeMobileInstallNotice();
+          return;
+        }
+        notice.style.transition = 'transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.28s ease';
+        notice.style.transform = 'translate3d(0, 0, 0)';
+        notice.style.opacity = '1';
+        mobileInstallNoticeTimer = window.setTimeout(closeMobileInstallNotice, 2500);
+      });
+      notice.addEventListener('pointercancel', () => {
+        mobileInstallSwipeStart = null;
+        notice.style.transition = 'transform 0.28s cubic-bezier(0.22,1,0.36,1), opacity 0.28s ease';
+        notice.style.transform = 'translate3d(0, 0, 0)';
+        notice.style.opacity = '1';
+        mobileInstallNoticeTimer = window.setTimeout(closeMobileInstallNotice, 2500);
+      });
+    }
+
+    async function installPwa() {
+      if (!deferredPwaInstallPrompt) {
+        const isKazakh = currentLanguage === 'kaz';
+        window.alert(isKazakh
+          ? 'Қосымшаны орнату үшін браузер мәзірінен «Басты экранға қосу» тармағын таңдаңыз.'
+          : 'Чтобы установить приложение, откройте меню браузера и выберите «Установить приложение» или «На экран Домой».');
+        return;
+      }
+
+      deferredPwaInstallPrompt.prompt();
+      await deferredPwaInstallPrompt.userChoice;
+      deferredPwaInstallPrompt = null;
+    }
+
+    window.addEventListener('load', () => {
+      if (window.lucide) window.lucide.createIcons();
+      const mobileMenu = document.getElementById('mobile-menu');
+      const activeMobileLink = mobileMenu?.querySelector('.mobile-nav-link.active');
+      syncMobileNavIndicator(mobileMenu, activeMobileLink);
+      if (!syncPwaInstallUi()) showMobileInstallNoticeOnce();
+      if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        navigator.serviceWorker.register('landing-sw.js', { scope: './index.html' }).catch(() => {});
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      const mobileMenu = document.getElementById('mobile-menu');
+      const activeMobileLink = mobileMenu?.querySelector('.mobile-nav-link.active');
+      syncMobileNavIndicator(mobileMenu, activeMobileLink);
+    });
+
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      deferredPwaInstallPrompt = event;
+      forgetPwaInstallation();
+      syncPwaInstallUi();
+      showMobileInstallNoticeOnce();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      deferredPwaInstallPrompt = null;
+      rememberPwaInstallation();
+      syncPwaInstallUi();
+    });
+
+    window.matchMedia('(display-mode: standalone)').addEventListener?.('change', syncPwaInstallUi);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        closeDemoModal();
+        closeTimesheetModal();
+        closeMenu();
+      }
+    });
+
+    const observedSections = document.querySelectorAll('#features, #audience, #faq, #pricing');
+    const navLinks = document.querySelectorAll('.nav-link');
+    const mobileNavIndexes = { features: 0, audience: 1, faq: 2, pricing: 3 };
+    const sectionObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        const nextMobileIndex = mobileNavIndexes[entry.target.id];
+        if (mobileNavLockedIndex !== null && nextMobileIndex !== mobileNavLockedIndex) return;
+        navLinks.forEach((link) => {
+          link.classList.toggle('active', link.getAttribute('href') === `#${entry.target.id}`);
+        });
+        setMobileNavActive(nextMobileIndex);
+      });
+    }, { rootMargin: '-35% 0px -55% 0px' });
+    observedSections.forEach((section) => sectionObserver.observe(section));
+  </script>
+</body>
+</html>

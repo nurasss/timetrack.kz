@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Вход — Timetrack.kz</title>
+  <link rel="icon" href="/timetrack_favicon.svg" />
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#07111d;color:#fff;font-family:Inter,Arial,sans-serif;padding:24px}.card{width:100%;max-width:420px;padding:40px;border-radius:28px;background:linear-gradient(180deg,#101d2b 0%,#0b1623 100%);border:1px solid rgba(255,255,255,.08);box-shadow:0 24px 80px rgba(0,0,0,.45)}.logo{width:48px;height:48px;border-radius:16px;background:#2ecc71;color:#07111d;display:grid;place-items:center;font-weight:900;font-size:22px;margin-bottom:24px}h1{margin:0;font-size:30px;line-height:1.15}p{color:#cbd5e1;line-height:1.6}.field{height:52px;border-radius:14px;background:#172536;border:1px solid rgba(255,255,255,.08);color:#fff;width:100%;padding:0 16px;margin:10px 0 18px;font-size:16px}.btn{height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#2ecc71 0%,#22b862 100%);color:#fff;font-weight:800;width:100%;font-size:16px}.note{margin-top:18px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);border-radius:16px;padding:14px;color:#cbd5e1;font-size:14px}.back{display:inline-block;margin-top:20px;color:#cbd5e1;text-decoration:none}
+  </style>
+</head>
+<body>
+  <form class="card" onsubmit="event.preventDefault(); document.querySelector('.note').textContent='Backend API подготовлен, но для рабочего входа нужен серверный деплой FastAPI/PostgreSQL, а текущий доступ является FTP-статикой.';">
+    <div class="logo">T</div>
+    <h1>Вход в кабинет компании</h1>
+    <p>Управляйте сотрудниками, отметками и табелем в одном месте.</p>
+    <input class="field" value="admin@timetrack.kz" aria-label="Email" />
+    <input class="field" value="123456" type="password" aria-label="Пароль" />
+    <button class="btn">Войти</button>
+    <div class="note">Демо-страница загружена на статический хостинг. Рабочий API готов в проекте и требует серверного окружения.</div>
+    <a class="back" href="/">← На главную</a>
+  </form>
+</body>
+</html>
+
