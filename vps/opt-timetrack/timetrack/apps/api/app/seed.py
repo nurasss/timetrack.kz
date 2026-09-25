@@ -1,4 +1,6 @@
 import asyncio
+import os
+import secrets
 from datetime import UTC, datetime
 
 from sqlalchemy import select
@@ -33,11 +35,16 @@ async def seed() -> None:
         session.add(company)
         await session.flush()
 
+        password = os.environ.get("ADMIN_SEED_PASSWORD")
+        generated = False
+        if not password:
+            password = secrets.token_urlsafe(20)
+            generated = True
         session.add(
             User(
                 company_id=company.id,
                 email="admin@timetrack.kz",
-                password_hash=hash_password("123456"),
+                password_hash=hash_password(password),
                 role=Role.COMPANY_ADMIN,
                 full_name="Администратор",
                 email_verified_at=datetime.now(UTC),
@@ -46,6 +53,9 @@ async def seed() -> None:
 
         await session.commit()
         print("Admin user created")
+        if generated:
+            print("ADMIN_SEED_PASSWORD was not set; generated one-time bootstrap password:")
+            print(password)
 
 
 if __name__ == "__main__":

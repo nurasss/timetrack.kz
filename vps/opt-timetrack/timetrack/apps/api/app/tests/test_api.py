@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -6,20 +8,25 @@ from app.main import app
 
 pytestmark = pytest.mark.asyncio
 
+SEED_EMAIL = "admin@timetrack.kz"
+SEED_PASSWORD = os.environ.get("ADMIN_SEED_PASSWORD")
+if not SEED_PASSWORD:
+    raise RuntimeError("ADMIN_SEED_PASSWORD must be set to run seed-dependent API tests")
+
 
 def client() -> AsyncClient:
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 async def auth_headers(client: AsyncClient) -> dict[str, str]:
-    response = await client.post("/api/v1/auth/login", json={"email": "admin@timetrack.kz", "password": "123456"})
+    response = await client.post("/api/v1/auth/login", json={"email": SEED_EMAIL, "password": SEED_PASSWORD})
     assert response.status_code == 200
     return {"Authorization": f"Bearer {response.json()['access_token']}"}
 
 
 async def test_login_success():
     async with client() as api:
-        response = await api.post("/api/v1/auth/login", json={"email": "admin@timetrack.kz", "password": "123456"})
+        response = await api.post("/api/v1/auth/login", json={"email": SEED_EMAIL, "password": SEED_PASSWORD})
     assert response.status_code == 200
     assert response.json()["user"]["role"] == "COMPANY_ADMIN"
 

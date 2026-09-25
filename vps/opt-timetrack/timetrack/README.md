@@ -33,12 +33,16 @@ Swagger: http://localhost:8000/docs
 MinIO:   http://localhost:9001
 ```
 
-Demo access:
+Demo access (local dev only — seed with your own password first):
+
+```sh
+ADMIN_SEED_PASSWORD="<strong-local-password>" python -m app.seed
+```
 
 ```txt
 URL: http://localhost:3000/login
 Email: admin@timetrack.kz
-Password: 123456
+Password: <value of ADMIN_SEED_PASSWORD>
 ```
 
 ## API Highlights
