@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 40" width="220" height="40">
+  <g transform="translate(0, 0)">
+    <!-- Blue lower-left quadrant arc -->
+    <path d="M 20 36 A 16 16 0 0 1 4 20 L 10 20 A 10 10 0 0 0 20 30 Z" fill="#2563eb" />
+    <!-- Green main ring arc -->
+    <path d="M 20 4 A 16 16 0 1 1 4 20 L 10 20 A 10 10 0 1 0 20 10 A 10 10 0 0 0 20 10 Z" fill="#22c55e" />
+  </g>
+  <!-- Brand text "timetrack" -->
+  <text x="46" y="28" font-family="'Roboto', 'Inter', sans-serif" font-weight="700" font-size="26" fill="#0f172a" letter-spacing="-0.5px">timetrack</text>
+</svg>
