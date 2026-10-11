@@ -734,7 +734,19 @@
 
   /* Pricing Section */
   .pricing-section {
-    padding: 54px 0 110px;
+    padding: 54px 0 56px;
+  }
+
+  .presentation-section { padding: 0 0 88px; }
+  .presentation-video {
+    display: block;
+    width: 100%;
+    max-width: 1040px;
+    aspect-ratio: 16 / 9;
+    margin: 0 auto;
+    border-radius: 24px;
+    background: #ebe7e2;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
   }
 
   .pricing-card {
@@ -1453,7 +1465,9 @@
     .faq-lead { margin-top: 12px; font-size: 15px; }
     .faq-question { gap: 14px; padding: 20px 0; font-size: 18px; }
     .faq-answer { padding: 0 48px 22px 0; font-size: 15px; }
-    .pricing-section { padding: 20px 0 72px; }
+    .pricing-section { padding: 20px 0 32px; }
+    .presentation-section { padding-bottom: 48px; }
+    .presentation-video { border-radius: 16px; }
     .pricing-card { padding: 28px 20px; }
     .pricing-price-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .price-display { white-space: normal; }
@@ -1756,6 +1770,13 @@
     </div>
   </section>
 
+  <!-- Presentation -->
+  <section class="presentation-section" aria-label="Презентация Timetrack">
+    <div class="container">
+      <video id="presentation-video" class="presentation-video" controls autoplay muted playsinline preload="metadata" aria-label="Презентация Timetrack"></video>
+    </div>
+  </section>
+
   <!-- Footer -->
   <footer class="footer">
     <div class="container">
@@ -1898,6 +1919,7 @@
     };
 
     const KAZAKH_ATTRIBUTES = {
+      'Презентация Timetrack': 'Timetrack таныстырылымы',
       'Мобильная навигация': 'Мобильді навигация',
       'Открыть меню': 'Мәзірді ашу',
       'Закрыть меню': 'Мәзірді жабу',
@@ -2035,6 +2057,7 @@
       translateStaticAttributes(currentLanguage);
       updateConsultationLinks();
       renderPricing();
+      updatePresentationVideo();
       const loginLink = document.getElementById('login-link');
       if (loginLink) {
         loginLink.href = currentLanguage === 'kaz' ? 'login.html?lang=kaz' : 'login.html';
@@ -2050,6 +2073,24 @@
 
     function setLang(lang) {
       applyLanguage(lang, true);
+    }
+
+    function updatePresentationVideo() {
+      const video = document.getElementById('presentation-video');
+      if (!video) return;
+      const source = currentLanguage === 'kaz'
+        ? 'videos/timetrack-presentation-kk-20261002.mp4'
+        : 'videos/timetrack-presentation-ru-20261002.mp4';
+      if (video.getAttribute('src') === source) return;
+      video.pause();
+      video.muted = true;
+      video.defaultMuted = true;
+      video.poster = currentLanguage === 'kaz'
+        ? 'videos/timetrack-presentation-kk-20261002.png'
+        : 'videos/timetrack-presentation-ru-20261002.jpg';
+      video.setAttribute('src', source);
+      video.load();
+      video.play().catch(() => {});
     }
 
     function initializeLanguage() {

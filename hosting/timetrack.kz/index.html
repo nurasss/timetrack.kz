@@ -38,12 +38,13 @@
 <link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2">
 <link rel="icon" type="image/svg+xml" href="favicon-light.svg?v=20260904-2" media="(prefers-color-scheme: light)">
 <link rel="icon" type="image/svg+xml" href="favicon-dark.svg?v=20260904-2" media="(prefers-color-scheme: dark)">
-<link rel="manifest" href="landing.webmanifest?v=20260904-1">
+<link rel="manifest" href="landing.webmanifest?v=20260724-1">
 <link rel="apple-touch-icon" href="favicon-new.png?v=20260904-2">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script defer src="https://unpkg.com/lucide@1.26.0/dist/umd/lucide.min.js" integrity="sha384-8/6sFI5UzGbr1Dgef7WSZvE4UemcVc/jyaQNsM+MilmnHQ9sce/pRv86XXj5Cg5m" crossorigin="anonymous"></script>
+<script defer src="tt-analytics.js?v=20261005-2"></script>
 <style>
   :root {
     color-scheme: light;
@@ -262,6 +263,7 @@
   .hero-buttons {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 20px;
   }
 
@@ -734,7 +736,19 @@
 
   /* Pricing Section */
   .pricing-section {
-    padding: 54px 0 110px;
+    padding: 54px 0 56px;
+  }
+
+  .presentation-section { padding: 0 0 88px; }
+  .presentation-video {
+    display: block;
+    width: 100%;
+    max-width: 1040px;
+    aspect-ratio: 16 / 9;
+    margin: 0 auto;
+    border-radius: 24px;
+    background: #ebe7e2;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.08);
   }
 
   .pricing-card {
@@ -872,6 +886,12 @@
 
   .pricing-action .btn-primary {
     width: 100%;
+    text-align: center;
+  }
+
+  .trial-note {
+    font-size: 13px;
+    color: var(--text-secondary);
     text-align: center;
   }
 
@@ -1453,7 +1473,9 @@
     .faq-lead { margin-top: 12px; font-size: 15px; }
     .faq-question { gap: 14px; padding: 20px 0; font-size: 18px; }
     .faq-answer { padding: 0 48px 22px 0; font-size: 15px; }
-    .pricing-section { padding: 20px 0 72px; }
+    .pricing-section { padding: 20px 0 32px; }
+    .presentation-section { padding-bottom: 48px; }
+    .presentation-video { border-radius: 16px; }
     .pricing-card { padding: 28px 20px; }
     .pricing-price-row { display: flex; flex-direction: column; align-items: center; gap: 2px; }
     .price-display { white-space: normal; }
@@ -1569,6 +1591,7 @@
         </p>
         <div class="hero-buttons">
           <button type="button" class="btn-primary" onclick="openDemoModal()">Как это работает</button>
+          <a href="register.html" class="btn-primary" data-goal="trial_click">14 дней бесплатно</a>
           <a href="https://wa.me/77054345148?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%BB%D1%83%D1%87%D0%B8%D1%82%D1%8C%20%D0%BA%D0%BE%D0%BD%D1%81%D1%83%D0%BB%D1%8C%D1%82%D0%B0%D1%86%D0%B8%D1%8E%20%D0%BF%D0%BE%20%D0%BF%D1%80%D0%B8%D0%BB%D0%BE%D0%B6%D0%B5%D0%BD%D0%B8%D1%8E%20timetrack" class="btn-link" target="_blank" rel="noopener">Получить консультацию</a>
         </div>
       </div>
@@ -1751,8 +1774,17 @@
 
         <div class="pricing-action">
           <a id="connect-tariff-link" href="https://wa.me/77054345148?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%2C%20%D1%85%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%83%D1%87%D0%B5%D1%82%20%D1%80%D0%B0%D0%B1%D0%BE%D1%87%D0%B5%D0%B3%D0%BE%20%D0%B2%D1%80%D0%B5%D0%BC%D0%B5%D0%BD%D0%B8%20timetrack.%20%D0%AF%20%D0%B2%D1%8B%D0%B1%D1%80%D0%B0%D0%BB%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%D0%BD%D0%B0%2010%20%D1%87%D0%B5%D0%BB%D0%BE%D0%B2%D0%B5%D0%BA%2C%20%D1%81%D1%80%D0%BE%D0%BA%D0%BE%D0%BC%20%D0%BD%D0%B0%2012%20%D0%BC%D0%B5%D1%81%D1%8F%D1%86%D0%B5%D0%B2" class="btn-primary" target="_blank" rel="noopener" style="font-size: 15px; padding: 12px 24px;">Подключить тариф</a>
+          <a href="register.html" class="btn-primary" data-goal="trial_click" style="font-size: 15px; padding: 12px 24px; background: var(--green-primary);">14 дней бесплатно</a>
+          <div class="trial-note">Первые 14 дней — бесплатно</div>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Presentation -->
+  <section class="presentation-section" aria-label="Презентация Timetrack">
+    <div class="container">
+      <video id="presentation-video" class="presentation-video" controls autoplay muted playsinline preload="metadata" aria-label="Презентация Timetrack"></video>
     </div>
   </section>
 
@@ -1854,6 +1886,8 @@
       'Рекомендуем': 'Ұсынамыз',
       'Samsung Galaxy Tab A9+, Redmi Pad SE или Lenovo Tab M11': 'Samsung Galaxy Tab A9+, Redmi Pad SE немесе Lenovo Tab M11',
       'Как это работает': 'Бұл қалай жұмыс істейді',
+      '14 дней бесплатно': '14 күн тегін',
+      'Первые 14 дней — бесплатно': 'Алғашқы 14 күн — тегін',
       'Получить консультацию': 'Кеңес алу',
       'Программа предоставляет возможность легко и быстро фиксировать присутствие сотрудников.': 'Бағдарлама қызметкерлердің қатысуын оңай әрі жылдам тіркеуге мүмкіндік береді.',
       'Всего 3 шага:': 'Бар болғаны 3 қадам:',
@@ -1898,6 +1932,7 @@
     };
 
     const KAZAKH_ATTRIBUTES = {
+      'Презентация Timetrack': 'Timetrack таныстырылымы',
       'Мобильная навигация': 'Мобильді навигация',
       'Открыть меню': 'Мәзірді ашу',
       'Закрыть меню': 'Мәзірді жабу',
@@ -1981,6 +2016,15 @@
       renderPricing();
     }
 
+    // Метка источника для WhatsApp (п.5 ТЗ): «… Timetrack [google|yandex|сайт]».
+    // Делегировано общему модулю tt-analytics.js (он же сохраняет UTM/gclid/yclid).
+    function withWaSource(message) {
+      if (window.TT_Analytics && typeof window.TT_Analytics.withSource === 'function') {
+        return window.TT_Analytics.withSource(message);
+      }
+      return message + ' Timetrack [сайт]';
+    }
+
     function renderPricing() {
       const tier = TIERS[currentTierIdx];
       const discount = currentBillingPeriod === 12 ? 0.2 : currentBillingPeriod === 6 ? 0.1 : 0;
@@ -2004,16 +2048,16 @@
         const periodWord = isKazakh
           ? 'ай'
           : (currentBillingPeriod === 1 ? 'месяц' : 'месяцев');
-        const message = 'Здравствуйте, я хочу подключить систему учета рабочего времени Timetrack';
+        const message = withWaSource('Здравствуйте, я хочу подключить систему учета рабочего времени Timetrack');
         connectTariffLink.href = `https://wa.me/77054345148?text=${encodeURIComponent(message)}`;
       }
     }
 
     function updateConsultationLinks() {
       const isKazakh = currentLanguage === 'kaz';
-      const message = isKazakh
+      const message = withWaSource(isKazakh
         ? 'Сәлеметсіз бе! Timetrack қосымшасы бойынша кеңес алғым келеді'
-        : 'Здравствуйте, я хочу подключить систему учета рабочего времени Timetrack';
+        : 'Здравствуйте, я хочу подключить систему учета рабочего времени Timetrack');
       document.querySelectorAll(`a[href^="https://wa.me/77054345148"]`).forEach((link) => {
         if (link.id === 'connect-tariff-link') return;
         link.href = `https://wa.me/77054345148?text=${encodeURIComponent(message)}`;
@@ -2035,6 +2079,7 @@
       translateStaticAttributes(currentLanguage);
       updateConsultationLinks();
       renderPricing();
+      updatePresentationVideo();
       const loginLink = document.getElementById('login-link');
       if (loginLink) {
         loginLink.href = currentLanguage === 'kaz' ? 'login.html?lang=kaz' : 'login.html';
@@ -2050,6 +2095,24 @@
 
     function setLang(lang) {
       applyLanguage(lang, true);
+    }
+
+    function updatePresentationVideo() {
+      const video = document.getElementById('presentation-video');
+      if (!video) return;
+      const source = currentLanguage === 'kaz'
+        ? 'videos/timetrack-presentation-kk-20261002.mp4'
+        : 'videos/timetrack-presentation-ru-20261002.mp4';
+      if (video.getAttribute('src') === source) return;
+      video.pause();
+      video.muted = true;
+      video.defaultMuted = true;
+      video.poster = currentLanguage === 'kaz'
+        ? 'videos/timetrack-presentation-kk-20261002.png'
+        : 'videos/timetrack-presentation-ru-20261002.jpg';
+      video.setAttribute('src', source);
+      video.load();
+      video.play().catch(() => {});
     }
 
     function initializeLanguage() {

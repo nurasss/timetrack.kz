@@ -18,6 +18,31 @@ function kazakhstanDate(offsetDays = 0) {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+test('tablet upgrade keeps the legacy pairing and queued event timestamps', async () => {
+  const vm = require('node:vm');
+  const html = fs.readFileSync(path.resolve(__dirname, '..', 'public', 'tablet.html'), 'utf8');
+  const queue = [{ id: 'old-event', empId: 'e1', type: 'checkin', ts: '2026-10-02T03:00:00.000Z' }];
+  let pair;
+  const context = {
+    URLSearchParams, location: { search: '' }, QUEUE_KEY: 'queue',
+    localStorage: { getItem: () => JSON.stringify(queue) },
+    tabletDeviceToken: () => 'existing-token', tabletDeviceId: () => '',
+    API: '/api.php?action=',
+    fetch: async () => ({ ok: true, json: async () => ({ ok: true, deviceId: 'existing-device' }) }),
+    saveTabletDevicePair: (id, token) => { pair = { id, token }; },
+    hideTabletLock() {}, showTabletLock() { throw new Error('Existing tablet was locked'); },
+  };
+  vm.createContext(context);
+  vm.runInContext(html.slice(html.indexOf('async function ensureTabletAccess()'), html.indexOf('\nconst Store =')), context);
+  vm.runInContext(html.slice(html.indexOf('function loadQueue()'), html.indexOf('\nfunction saveQueue(')), context);
+  assert.equal(await context.ensureTabletAccess(), true);
+  assert.deepEqual(pair, { id: 'existing-device', token: 'existing-token' });
+  const migrated = context.loadQueue()[0];
+  assert.equal(migrated.clientTimestamp, queue[0].ts);
+  assert.equal(migrated.offline, true);
+  assert.equal(migrated.eventId, 'legacy-old-event');
+});
+
 function kazakhstanDisplayDate(offsetDays = 0) {
   const [year, month, day] = kazakhstanDate(offsetDays).split('-');
   return `${day}.${month}.${year}`;
@@ -217,6 +242,52 @@ test('security boundary: admin session, CSRF, minimized tablet state and revocat
     body: { deviceToken: verified.deviceToken, log: { id: 'missing-device', empId: 'e1', type: 'checkout' } },
   });
   assert.equal(missingDeviceId.status, 403);
+
+  // Pre-upgrade production devices authenticate with a token only. New
+  // pairings still require the ID, and an explicit mismatched ID is rejected.
+  const crypto = require('node:crypto');
+  const legacyToken = crypto.randomBytes(32).toString('hex');
+  const legacySecurity = JSON.parse(fs.readFileSync(path.join(companyDir, 'security.json'), 'utf8'));
+  legacySecurity.tabletDevices.push({
+    id: 'legacy-device',
+    tokenHash: crypto.createHash('sha256').update(legacyToken).digest('hex'),
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 86400000).toISOString(),
+  });
+  fs.writeFileSync(path.join(companyDir, 'security.json'), JSON.stringify(legacySecurity));
+  const legacyState = await request('tabletState', { method: 'POST', body: { deviceToken: legacyToken } });
+  assert.equal(legacyState.status, 200);
+  assert.equal((await legacyState.json()).deviceId, 'legacy-device');
+  const wrongLegacyId = await request('tabletState', {
+    method: 'POST', body: { deviceToken: legacyToken, deviceId: verified.deviceId },
+  });
+  assert.equal(wrongLegacyId.status, 403);
+  const legacyCheckout = await request('addLog', {
+    method: 'POST', body: { deviceToken: legacyToken, log: { id: 'legacy-checkout', empId: 'e1', type: 'checkout' } },
+  });
+  assert.equal(legacyCheckout.status, 200);
+  // Restore the sequence so the subsequent checks exercise the same fixture.
+  const legacyLogs = JSON.parse(fs.readFileSync(path.join(companyDir, 'logs.json'), 'utf8'));
+  legacyLogs.logs = legacyLogs.logs.filter((log) => log.id !== 'legacy-checkout');
+  fs.writeFileSync(path.join(companyDir, 'logs.json'), JSON.stringify(legacyLogs));
+  const restoredSecurity = JSON.parse(fs.readFileSync(path.join(companyDir, 'security.json'), 'utf8'));
+  restoredSecurity.tabletDevices = restoredSecurity.tabletDevices.filter((device) => device.id !== 'legacy-device');
+  fs.writeFileSync(path.join(companyDir, 'security.json'), JSON.stringify(restoredSecurity));
+
+  const dayBoundaryFile = path.join(companyDir, 'logs.json');
+  const dayBoundaryOriginal = fs.readFileSync(dayBoundaryFile, 'utf8');
+  fs.writeFileSync(dayBoundaryFile, JSON.stringify({ logs: [{
+    id: 'yesterday-unclosed', empId: 'e1', type: 'checkin',
+    ts: new Date(Date.now() - 86400000).toISOString(),
+  }] }));
+  const nextDayCheckin = await request('addLog', {
+    method: 'POST', body: {
+      deviceToken: verified.deviceToken, deviceId: verified.deviceId,
+      log: { id: 'new-day-checkin', empId: 'e1', type: 'checkin' },
+    },
+  });
+  assert.equal(nextDayCheckin.status, 200, 'Yesterday\'s unclosed shift must not block today\'s arrival');
+  fs.writeFileSync(dayBoundaryFile, dayBoundaryOriginal);
 
   const checkoutResponse = await request('addLog', {
     method: 'POST',

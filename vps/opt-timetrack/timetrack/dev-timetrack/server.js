@@ -261,13 +261,15 @@ function stateForRole(state, role) {
   return next;
 }
 
-function kazakhstanDateKey(value = new Date()) {
-  const dateParts = new Intl.DateTimeFormat('en', {
+const kazakhstanDateFormatter = new Intl.DateTimeFormat('en', {
     timeZone: 'Asia/Qyzylorda',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).formatToParts(value);
+});
+
+function kazakhstanDateKey(value = new Date()) {
+  const dateParts = kazakhstanDateFormatter.formatToParts(value);
   const part = (type) => dateParts.find((item) => item.type === type)?.value || '';
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
@@ -629,7 +631,7 @@ function tabletTokenHash(token) {
 function requireTabletDevice(body, slug) {
   const token = String(body.deviceToken || body.tabletDeviceToken || '').trim();
   const deviceId = String(body.deviceId || body.tabletDeviceId || '').trim();
-  if (!DEVICE_ID_PATTERN.test(deviceId)) {
+  if (deviceId && !DEVICE_ID_PATTERN.test(deviceId)) {
     return { ok: false, status: 403, error: 'Идентификатор планшета недействителен', code: 'TABLET_DEVICE_REQUIRED' };
   }
   const security = readSecurity(slug);
@@ -637,7 +639,7 @@ function requireTabletDevice(body, slug) {
   const index = tabletDevices(security).findIndex((device) => (
     tokenHash
     && device.tokenHash
-    && device.id === deviceId
+    && (deviceId ? device.id === deviceId : device.requiresDeviceId !== true)
     && !device.revokedAt
     && (!device.expiresAt || Date.parse(device.expiresAt) > Date.now())
     && safeEqual(device.tokenHash, tokenHash)
@@ -1103,13 +1105,15 @@ function employee(input = {}, current = {}, options = {}) {
   return next;
 }
 
-function kazakhstanTime(when) {
-  return new Intl.DateTimeFormat('en-GB', {
+const kazakhstanTimeFormatter = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Qyzylorda',
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
-  }).formatToParts(when).reduce((result, item) => {
+});
+
+function kazakhstanTime(when) {
+  return kazakhstanTimeFormatter.formatToParts(when).reduce((result, item) => {
     if (item.type === 'hour' || item.type === 'minute') result[item.type] = Number(item.value);
     return result;
   }, { hour: 0, minute: 0 });
@@ -1167,7 +1171,9 @@ function normalizeStoredState(state) {
       empId: employeeId,
       empName: employeeRecord ? `${employeeRecord.fname} ${employeeRecord.lname}`.trim() : text(input.empName, 180),
       empIin: employeeRecord?.iin || '',
-      empPhoto: employeeRecord?.photo || null,
+      // Admin resolves photos through employeeById instead of duplicating
+      // base64 images across historical attendance records.
+      empPhoto: null,
       type,
       time: kazakhstanTimeString(when),
       date: kazakhstanDisplayDate(when),
@@ -1217,7 +1223,9 @@ function buildAttendanceLog(input, employeeRecord, state, { manual = false, serv
     .sort((a, b) => attendanceEventMs(a) - attendanceEventMs(b) || timestamp(a.ts) - timestamp(b.ts));
   const latest = previous[previous.length - 1];
   if (latest && eventMs < attendanceEventMs(latest)) return { ok: false, status: 409, error: 'Отметка противоречит более новой последовательности', code: 'OUT_OF_ORDER' };
-  const expectedType = latest?.type === 'checkin' ? 'checkout' : 'checkin';
+  const latestToday = latest && kazakhstanDateKey(new Date(attendanceEventMs(latest))) === kazakhstanDateKey(new Date(eventMs))
+    ? latest : null;
+  const expectedType = latestToday?.type === 'checkin' ? 'checkout' : 'checkin';
   if (input.type !== expectedType) return { ok: false, status: 409, error: `Сейчас доступна отметка: ${expectedType === 'checkin' ? 'приход' : 'уход'}`, code: 'INVALID_SEQUENCE' };
   if (previous.some((item) => item.type === input.type && Math.abs(attendanceEventMs(item) - eventMs) <= DUPLICATE_WINDOW_MS)) return { ok: false, status: 409, error: 'Такая отметка уже была недавно', code: 'DUPLICATE_ATTENDANCE' };
   const eventDate = new Date(eventMs);
@@ -1229,7 +1237,7 @@ function buildAttendanceLog(input, employeeRecord, state, { manual = false, serv
       empId: employeeRecord.id,
       empName: `${employeeRecord.fname} ${employeeRecord.lname}`.trim(),
       empIin: employeeRecord.iin || '',
-      empPhoto: employeeRecord.photo || null,
+      empPhoto: null,
       type: expectedType,
       time: kazakhstanTimeString(eventDate),
       date: kazakhstanDisplayDate(eventDate),
@@ -1532,7 +1540,7 @@ async function handleAPI(req, res) {
   if (action === 'tabletState') {
     const auth = requireTabletDevice(body, slug);
     if (!auth.ok) return json(res, auth.status, { ok: false, error: auth.error, code: auth.code });
-    return json(res, 200, { ok: true, state: tabletState(state) });
+    return json(res, 200, { ok: true, deviceId: auth.device.id, state: tabletState(state) });
   }
 
   if (action === 'checkAdminPin') {
@@ -1768,6 +1776,7 @@ async function handleAPI(req, res) {
       {
         id: deviceId,
         tokenHash: tabletTokenHash(deviceToken),
+        requiresDeviceId: true,
         createdAt: new Date().toISOString(),
         lastSeenAt: new Date().toISOString(),
         expiresAt: new Date(Date.now() + TABLET_DEVICE_TTL_MS).toISOString(),

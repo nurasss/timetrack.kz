@@ -1473,6 +1473,19 @@ if ($action === 'register') {
     $acceptedPolicy = !empty($input['acceptedPolicy']);
     $acceptedOffer = !empty($input['acceptedOffer']);
 
+    // Маркетинговая атрибуция (п.4 ТЗ): utm_*, gclid, yclid, сохранённые
+    // tt-analytics.js на лендинге. Только для аналитики каналов.
+    $rawAttribution = $input['attribution'] ?? [];
+    $marketing = [];
+    if (is_array($rawAttribution)) {
+        foreach (['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'yclid'] as $attrKey) {
+            $attrValue = isset($rawAttribution[$attrKey]) ? clean_text($rawAttribution[$attrKey], 128) : '';
+            if ($attrValue !== '') {
+                $marketing[$attrKey] = $attrValue;
+            }
+        }
+    }
+
     if (!valid_slug($newSlug)) {
         respond(['ok' => false, 'error' => 'Некорректный идентификатор (3-32 символа, латиница, цифры, дефис)'], 422);
     }
@@ -1519,6 +1532,7 @@ if ($action === 'register') {
         'email' => $email,
         'emailVerified' => false,
         'createdAt' => gmdate('c'),
+        'marketing' => $marketing,
         'consent' => [
             'policy' => true,
             'offer' => true,

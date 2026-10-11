@@ -1,0 +1,8 @@
+{
+  "name": "timetrack-brag",
+  "private": true,
+  "scripts": {
+    "check": "npx hyperframes@0.8.111 check",
+    "render": "npx hyperframes@0.8.111 render --quality delivery --output ../brag.mp4"
+  }
+}

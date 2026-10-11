@@ -11,6 +11,7 @@
 <link rel="manifest" href="landing.webmanifest?v=20260904-1">
 <link rel="apple-touch-icon" href="favicon-new.png?v=20260904-2">
 <script defer src="https://unpkg.com/lucide@1.26.0/dist/umd/lucide.min.js" integrity="sha384-8/6sFI5UzGbr1Dgef7WSZvE4UemcVc/jyaQNsM+MilmnHQ9sce/pRv86XXj5Cg5m" crossorigin="anonymous"></script>
+<script defer src="tt-analytics.js?v=20261005-2"></script>
 <style>
   :root {
     color-scheme: light;
@@ -548,6 +549,19 @@
 </style>
 </head>
 <body>
+<!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+  (function(m,e,t,r,i,k,a){
+    m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+    m[i].l=1*new Date();
+    for (var j=0;j<document.scripts.length;j++){if(document.scripts[j].src===r){return;}}
+    k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a);
+  })(window,document,'script','https://mc.yandex.ru/metrika/tag.js?id=111411851','ym');
+
+  ym(111411851,'init',{ssr:true,webvisor:true,clickmap:true,ecommerce:'dataLayer',referrer:document.referrer,url:location.href,accurateTrackBounce:true,trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/111411851" style="position:absolute; left:-9999px;" alt=""></div></noscript>
+<!-- /Yandex.Metrika counter -->
 <main class="page">
   <div class="login-shell">
     <a class="close-link" href="index.html?landing=1" aria-label="Вернуться на главную">

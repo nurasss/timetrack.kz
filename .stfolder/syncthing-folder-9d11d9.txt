@@ -1,0 +1,5 @@
+# This directory is a Syncthing folder marker.
+# Do not delete.
+
+folderID: rylep-ckgtf
+created: 2026-10-06T10:27:44+05:00
